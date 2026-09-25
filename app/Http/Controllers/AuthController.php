@@ -17,6 +17,16 @@ use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
+    public function providers()
+    {
+        return [
+            'google' => [
+                'configured' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
+                'redirect_uri' => config('services.google.redirect'),
+            ],
+        ];
+    }
+
     public function me(Request $request)
     {
         $user = $request->user();
@@ -136,7 +146,7 @@ class AuthController extends Controller
 
     public function google(Request $request)
     {
-        abort_unless(config('services.google.client_id'), 503, 'Google login is not configured. Use email login.');
+        abort_unless(filled(config('services.google.client_id')) && filled(config('services.google.client_secret')), 503, 'Google login is not configured. Use email login.');
         $returnTo = $request->query('returnTo', '/login-redirect');
         if (! is_string($returnTo) || ! str_starts_with($returnTo, '/') || str_starts_with($returnTo, '//') || str_contains($returnTo, '\\')) {
             $returnTo = '/login-redirect';

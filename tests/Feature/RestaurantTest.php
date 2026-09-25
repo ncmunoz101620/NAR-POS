@@ -85,6 +85,21 @@ class RestaurantTest extends TestCase
         $this->assertTrue(Hash::check('New-secure-password-123', $user->fresh()->password));
     }
 
+    public function test_google_provider_reports_configuration_state(): void
+    {
+        config(['services.google.client_id' => null, 'services.google.client_secret' => null]);
+
+        $this->getJson('/api/auth/providers')
+            ->assertOk()
+            ->assertJsonPath('google.configured', false);
+
+        config(['services.google.client_id' => 'client-id', 'services.google.client_secret' => 'client-secret']);
+
+        $this->getJson('/api/auth/providers')
+            ->assertOk()
+            ->assertJsonPath('google.configured', true);
+    }
+
     public function test_registration_verification_and_role_injection(): void
     {
         $this->postJson('/api/auth/register', ['email' => 'new@example.test', 'password' => 'Strong-password-123', 'role' => 'admin'])->assertCreated();

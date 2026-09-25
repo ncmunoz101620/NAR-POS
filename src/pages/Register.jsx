@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,13 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
   const [otpCode, setOtpCode] = useState("");
+  const [googleConfigured, setGoogleConfigured] = useState(false);
+
+  useEffect(() => {
+    api.auth.providers()
+      .then((providers) => setGoogleConfigured(!!providers.google?.configured))
+      .catch(() => setGoogleConfigured(false));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -66,6 +73,14 @@ export default function Register() {
   };
 
   const handleGoogle = () => {
+    if (!googleConfigured) {
+      toast({
+        title: "Google login is not configured",
+        description: "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env, then restart the Laravel server.",
+        variant: "destructive",
+      });
+      return;
+    }
     api.auth.loginWithProvider("google", safeReturnTo());
   };
 

@@ -15,6 +15,7 @@ Route::get('/auth/google', [AuthController::class, 'google']);
 Route::get('/auth/google/callback', [AuthController::class, 'googleCallback']);
 Route::prefix('api')->group(function () {
     Route::get('/csrf', fn () => ['token' => csrf_token()]);
+    Route::get('/auth/providers', [AuthController::class, 'providers']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::middleware('throttle:6,1')->group(function () {

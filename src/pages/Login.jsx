@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/client";
 import { Button } from "@/components/ui/button";
@@ -6,16 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock, Loader2 } from "lucide-react";
 import GoogleIcon from "@/components/GoogleIcon";
+import { useToast } from "@/components/ui/use-toast";
 import { safeReturnTo } from "@/lib/authReturnTo";
 import { LOGO_URL } from "@/lib/brand";
 
 const HERO_URL = "/images/login-background.png";
 
 export default function Login() {
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleConfigured, setGoogleConfigured] = useState(false);
   // Post-login destination (e.g. the MCP OAuth consent page sends users here
   // with returnTo so the grant flow can resume). Same-origin paths only.
   // When no explicit returnTo is present, route through /login-redirect which
@@ -23,6 +26,12 @@ export default function Login() {
   const rawReturnTo = new URLSearchParams(window.location.search).get("returnTo");
   const returnTo = safeReturnTo();
   const postLoginDest = rawReturnTo ? returnTo : "/login-redirect";
+
+  useEffect(() => {
+    api.auth.providers()
+      .then((providers) => setGoogleConfigured(!!providers.google?.configured))
+      .catch(() => setGoogleConfigured(false));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,6 +48,14 @@ export default function Login() {
   };
 
   const handleGoogle = () => {
+    if (!googleConfigured) {
+      toast({
+        title: "Google login is not configured",
+        description: "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env, then restart the Laravel server.",
+        variant: "destructive",
+      });
+      return;
+    }
     api.auth.loginWithProvider("google", postLoginDest);
   };
 

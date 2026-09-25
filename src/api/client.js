@@ -34,6 +34,7 @@ export const api = {
   entities,
   auth: {
     me:()=>request('/auth/me'), isAuthenticated:()=>request('/auth/me').then(()=>true).catch(()=>false),
+    providers:()=>request('/auth/providers'),
     loginViaEmailPassword:(email,password)=>request('/auth/login','POST',{email,password}),
     register:data=>request('/auth/register','POST',data), verifyOtp:data=>request('/auth/verify','POST',data),
     resendOtp:()=>request('/auth/resend','POST'), resetPasswordRequest:email=>request('/auth/forgot','POST',{email}),
