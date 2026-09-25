@@ -29,4 +29,13 @@ dist-ssr
 
 .env
 .vite
-base44/.app.jsonc
+
+/vendor
+/.laravel-foundation
+/public/build
+/public/storage
+/storage/*.key
+/database/*.sqlite
+!/.env.example
+/.phpunit.result.cache
+/public/hot
