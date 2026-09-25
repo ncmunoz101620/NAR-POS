@@ -1,0 +1,35 @@
+export const PH_LOCATIONS = {
+  "Metro Manila": {
+    "Manila": ["Ermita", "Malate", "Sampaloc", "Tondo", "Binondo", "Quiapo", "San Nicolas", "Santa Cruz", "Santa Mesa", "San Miguel", "Intramuros", "Port Area"],
+    "Mandaluyong": ["Addition Hills", "Bagong Silang", "Buayang Bato", "Daang Bakal", "Hagdan Bato", "Hulo", "Mabini J. Rizal", "Malamig", "Malibay", "Namayan", "Nueve de Pebrero", "Pag-asa", "Poblacion", "San Francisco", "Wack-wack"],
+    "Marikina": ["Barangka", "Calumpang", "Concepcion", "Jesus de la Peña", "Marikina Heights", "Nangka", "Parang", "San Roque", "Santa Elena", "Santo Niño", "Tañong", "Tumana", "Industrial Valley", "Fortune", "Malanday", "Bayanan"],
+    "Pasig": ["Bagong Ilog", "Bagong Katipunan", "Bambang", "Buting", "Caniogan", "Kalawaan", "Kapasigan", "Kapitolyo", "Malinao", "Maybunga", "Oranbo", "Palatiw", "Pinagbuhatan", "Pineda", "Rosario", "Sagad", "San Antonio", "San Joaquin", "San Jose", "Santa Cruz", "Santa Lucia", "Santa Rosa", "Santo Tomas", "Sumilang", "Ugong", "Dela Paz", "Manggahan"],
+    "Quezon City": ["Bagong Silang", "Batasan Hills", "Commonwealth", "Holy Spirit", "Tandang Sora", "Bahay Toro", "Balingasa", "Baesa", "Bago Bantay", "Bagumbayan", "Balara", "Bayanihan", "Bungad", "Camp Aguinaldo", "Capri", "Carmen", "Cubao", "Damar", "Del Monte", "Doña Imelda", "E. Rodriguez", "Escopa", "Fairview", "Immaculate Concepcion", "Kalusugan", "Kamias", "Kamuning", "Krus na Ligas", "Lagro", "Lourdes", "Mariblo", "Masambong", "Matandang Balara", "N.S. Amoranto", "New Era", "North Fairview", "Novaliches Proper", "Pasong Putik", "Pasong Tamo", "Pinyahan", "Pitogo", "Pugad Lawin", "Ramon Magsaysay", "Roxas", "Sacred Heart", "San Agustin", "San Antonio", "San Bartolome", "San Isidro", "San Jose", "San Roque", "San Vicente", "Sangandaan", "Santa Cruz", "Santa Monica", "Santo Cristo", "Santo Domingo", "Sauyo", "Silangan", "St. Peter", "Tagumpay", "U.P. Village", "Valencia", "Veterans"],
+    "Caloocan": ["Bagong Barrio", "Baesa", "Camarin", "Deparo", "Fairview", "Grace Park", "Llano", "Malaria", "Monterey", "Novaliches", "Pasong Putik", "Tala", "Tandang Sora", "University Hills", "Bagumbong", "Kaypaunla"],
+    "Malabon": ["Acacia", "Baritan", "Bayan-bayanan", "Catmon", "Concepcion", "Dampalit", "Flores", "Hulong Duhat", "Ibaba", "Longos", "Maysilo", "Muzon", "Niugan", "Panghulo", "Perlas", "Potrero", "San Agustin", "Santolan", "Tañong", "Tonsuya", "Tugatog"],
+    "Navotas": ["Bangculasi", "Navotas East", "Navotas West", "North Bay Boulevard North", "North Bay Boulevard South", "San Jose", "San Rafael", "San Roque", "Sipac", "Tangos", "Tanza", "Daanghari", "Bagumbayan"],
+    "Valenzuela": ["Arkong Bato", "Balangkas", "Bignay", "Bisig", "Canumay", "Coloong", "Dalandanan", "Gen. T. de Leon", "Karuhatan", "Lawang Bato", "Lingunan", "Mabolo", "Malanday", "Malinta", "Mapulang Lupa", "Marulas", "Parada", "Paso Blas", "Pasolo", "Poblacion", "Polo", "Punturin", "Rincon", "Tagalag", "Veinte Reales", "Wawang Pulo", "Ugong"],
+    "Las Piñas": ["Almanza Uno", "Almanza Dos", "Daniel Fajardo", "Elias Aldana", "Ilaya", "Manuyo Uno", "Manuyo Dos", "Pamplona Uno", "Pamplona Dos", "Pamplona Tres", "Pilar", "Pulang Lupa Uno", "Pulang Lupa Dos", "Talon Uno", "Talon Dos", "Talon Tres", "Talon Cuatro", "Talon Singko", "Zapote", "CAA"],
+    "Makati": ["Bangkal", "Bel-Air", "Carmona", "Cembo", "Comembo", "Dasmariñas", "East Rembo", "Forbes Park", "Guadalupe Nuevo", "Guadalupe Viejo", "Kasilawan", "La Paz", "Magallanes", "Olympia", "Palanan", "Pembo", "Pinagkaisahan", "Pio del Pilar", "Poblacion", "Post Proper North", "Post Proper South", "Rizal", "San Antonio", "San Isidro", "San Lorenzo", "Santa Cruz", "Singkamas", "South Cembo", "Tejeros", "Valenzuela", "West Rembo"],
+    "Muntinlupa": ["Alabang", "Bayanan", "Buli", "Cupang", "Poblacion", "Putatan", "Sucat", "Tunasan", "Ayala Alabang"],
+    "Parañaque": ["Baclaran", "B.F. Homes", "Don Galo", "La Huerta", "San Dionisio", "San Isidro", "San Martin de Porres", "San Roque", "Santa Rita", "Santo Niño", "Sun Valley", "Tambo", "Vitalez", "Marcelo Green", "Merville", "Moonwalk"],
+    "Pasay": ["Baclaran", "Banay-banay", "Baybay", "Doña Josefa", "F.B. Harrison", "Libertad", "Malibay", "Maricaban", "Nichols", "Pasay", "Pico", "San Isidro", "San Rafael", "Santa Clara", "Santa Rosa", "Tabacalera", "Tramo", "Villamor", "Wenceslao"],
+    "Pateros": ["Aguho", "Magtanggol", "Martires del 89", "Poblacion", "San Pedro", "San Roque", "Santa Ana", "Santo Rosario Kanluran", "Santo Rosario Silangan", "Tabacalera"],
+    "San Juan": ["Addition Hills", "Balong Bato", "Batisan", "Corazon de Jesus", "Damar", "Ermitaño", "Kabayanan", "Little Baguio", "Maytunas", "Onse", "Pedro Cruz", "Progreso", "Rivera", "Saint Mary", "San Perfecto", "Santa Lucia", "Tibagan", "West Crame", "West Drive", "West Tapin", "Yamang"],
+    "Taguig": ["Bagumbayan", "Bambang", "Calzada", "Hagonoy", "Ibayo Tipas", "Ligid Tipas", "Lower Bicutan", "Maharlika Village", "Napindan", "Palingon Tipas", "Pinagsama", "San Miguel", "Santa Ana", "Tanyag", "Tuktukan", "Upper Bicutan", "Ususan", "Wawa", "Central Bicutan", "North Signal Village", "South Signal Village", "South Daang Hari", "Western Bicutan", "Fort Bonifacio"],
+  },
+  "Rizal": {
+    "Antipolo": ["Dela Paz", "San Roque", "Mayamot", "Cupang"],
+    "Cainta": ["San Andres", "San Juan", "Santo Domingo"],
+    "Taytay": ["Dolores", "San Juan", "Muzon"],
+  },
+  "Cavite": {
+    "Bacoor": ["Molino", "Talaba", "Zapote"],
+    "Dasmariñas": ["Salawag", "Paliparan", "Burol"],
+    "Imus": ["Anabu", "Bucandala", "Malagasang"],
+  },
+  "Laguna": {
+    "Santa Rosa": ["Balibago", "Don Jose", "Malitlit"],
+    "Calamba": ["Parian", "Real", "Canlubang"],
+  },
+};

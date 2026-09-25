@@ -1,0 +1,62 @@
+{
+  "name": "StockTransfer",
+  "type": "object",
+  "properties": {
+    "item_id": {
+      "type": "string"
+    },
+    "item_type": {
+      "type": "string",
+      "enum": [
+        "Production",
+        "Raw"
+      ],
+      "default": "Production"
+    },
+    "item_name": {
+      "type": "string"
+    },
+    "from_branch": {
+      "type": "string",
+      "enum": [
+        "NAR Commi",
+        "NAR Greenwoods"
+      ]
+    },
+    "to_branch": {
+      "type": "string",
+      "enum": [
+        "NAR Commi",
+        "NAR Greenwoods"
+      ]
+    },
+    "quantity": {
+      "type": "number"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Completed",
+        "Cancelled"
+      ],
+      "default": "Completed"
+    }
+  },
+  "required": [
+    "item_id",
+    "item_type",
+    "from_branch",
+    "to_branch",
+    "quantity"
+  ]
+}

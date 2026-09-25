@@ -1,0 +1,44 @@
+{
+  "name": "StockLedger",
+  "type": "object",
+  "properties": {
+    "item_id": {
+      "type": "string"
+    },
+    "item_type": {
+      "type": "string",
+      "enum": [
+        "Production",
+        "Raw"
+      ],
+      "default": "Production"
+    },
+    "item_name": {
+      "type": "string"
+    },
+    "branch": {
+      "type": "string",
+      "enum": [
+        "NAR Commi",
+        "NAR Greenwoods"
+      ]
+    },
+    "current_stock": {
+      "type": "number",
+      "default": 0
+    },
+    "unit": {
+      "type": "string",
+      "default": "kg"
+    },
+    "min_stock": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "item_id",
+    "item_type",
+    "branch"
+  ]
+}

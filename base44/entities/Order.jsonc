@@ -1,0 +1,215 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_phone": {
+      "type": "string"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "order_type": {
+      "type": "string",
+      "enum": [
+        "Delivery",
+        "Pick-up",
+        "Dine-In",
+        "Walk-in"
+      ],
+      "default": "Delivery"
+    },
+    "customer_source": {
+      "type": "string",
+      "enum": [
+        "Walk-in",
+        "Grab",
+        "Meta"
+      ]
+    },
+    "branch": {
+      "type": "string",
+      "enum": [
+        "NAR Commi",
+        "NAR Greenwoods"
+      ]
+    },
+    "table_number": {
+      "type": "string"
+    },
+    "province": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "barangay": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "landmark": {
+      "type": "string"
+    },
+    "postcode": {
+      "type": "string"
+    },
+    "preferred_date": {
+      "type": "string"
+    },
+    "preferred_time": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "For Reservation",
+        "Confirmed",
+        "Preparing",
+        "Ready",
+        "Out for Delivery",
+        "Completed",
+        "Cancelled",
+        "Refunded"
+      ],
+      "default": "Pending"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "Unpaid",
+        "Paid",
+        "Refunded"
+      ],
+      "default": "Unpaid"
+    },
+    "payment_method": {
+      "type": "string"
+    },
+    "gcash_type": {
+      "type": "string",
+      "enum": [
+        "Corporate",
+        "Personal"
+      ]
+    },
+    "payment_reference": {
+      "type": "string"
+    },
+    "payment_reference_2": {
+      "type": "string"
+    },
+    "subtotal": {
+      "type": "number",
+      "default": 0
+    },
+    "discount": {
+      "type": "number",
+      "default": 0
+    },
+    "discount_type": {
+      "type": "string"
+    },
+    "discount_reason": {
+      "type": "string"
+    },
+    "discount_id_url": {
+      "type": "string"
+    },
+    "delivery_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "tax": {
+      "type": "number",
+      "default": 0
+    },
+    "total": {
+      "type": "number",
+      "default": 0
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "Online",
+        "Manual"
+      ],
+      "default": "Online"
+    },
+    "created_by_name": {
+      "type": "string"
+    },
+    "cook_name": {
+      "type": "string"
+    },
+    "inventory_deducted": {
+      "type": "boolean",
+      "default": false
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "variant_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "subtotal": {
+            "type": "number"
+          },
+          "modifiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "order_number"
+  ]
+}

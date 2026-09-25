@@ -1,0 +1,61 @@
+{
+  "name": "InventoryTransaction",
+  "type": "object",
+  "properties": {
+    "ingredient_id": {
+      "type": "string"
+    },
+    "ingredient_name": {
+      "type": "string"
+    },
+    "ingredient_type": {
+      "type": "string",
+      "enum": [
+        "Production",
+        "Raw"
+      ],
+      "default": "Production"
+    },
+    "branch": {
+      "type": "string",
+      "enum": [
+        "NAR Commi",
+        "NAR Greenwoods"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Stock In",
+        "Sales Consumption",
+        "Waste",
+        "Adjustment",
+        "Return",
+        "Correction",
+        "Transfer In",
+        "Transfer Out"
+      ],
+      "default": "Stock In"
+    },
+    "quantity": {
+      "type": "number"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "reference": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "ingredient_id",
+    "type",
+    "quantity"
+  ]
+}

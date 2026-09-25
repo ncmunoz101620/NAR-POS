@@ -1,0 +1,43 @@
+{
+  "name": "Recipe",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "variant_name": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ingredient_id": {
+            "type": "string"
+          },
+          "ingredient_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ingredient_id",
+          "quantity"
+        ]
+      }
+    }
+  },
+  "required": [
+    "product_id",
+    "variant_name"
+  ]
+}

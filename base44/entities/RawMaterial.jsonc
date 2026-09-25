@@ -1,0 +1,55 @@
+{
+  "name": "RawMaterial",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "sku": {
+      "type": "string"
+    },
+    "unit": {
+      "type": "string",
+      "default": "kg"
+    },
+    "current_stock": {
+      "type": "number",
+      "default": 0
+    },
+    "min_stock": {
+      "type": "number",
+      "default": 0
+    },
+    "reorder_level": {
+      "type": "number",
+      "default": 0
+    },
+    "cost_per_unit": {
+      "type": "number",
+      "default": 0
+    },
+    "supplier": {
+      "type": "string"
+    },
+    "storage_location": {
+      "type": "string"
+    },
+    "expiration_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    },
+    "deleted_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
