@@ -10,7 +10,7 @@ import Receipt from "@/components/admin/Receipt";
 import { peso, ORDER_STATUSES } from "@/lib/brand";
 import { updateOrderStatus } from "@/lib/pos";
 import { formatManila } from "@/lib/datetime";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import * as thermalPrinter from "@/lib/thermalPrinter";
 
 export default function OrderDetailDialog({ order, settings, session, openPrint, onClose, onChanged }) {
@@ -40,6 +40,7 @@ export default function OrderDetailDialog({ order, settings, session, openPrint,
       return;
     }
     setBusy(true);
+    try {
     const updated = await updateOrderStatus(current, status, session.roleName, undefined, status === "Cancelled" ? cancelReason.trim() : undefined);
     setCurrent(updated);
     if (status === "Cancelled") setCancelReason("");
@@ -49,12 +50,14 @@ export default function OrderDetailDialog({ order, settings, session, openPrint,
       title: `Order ${status}`,
       description: status === "Completed" ? "Ingredients deducted from inventory." : undefined,
     });
+    } catch(error) { toast({title:'Order update failed',description:error.message,variant:'destructive'}); }
+    finally { setBusy(false); }
   };
 
   const addNote = async () => {
     if (!note.trim()) return;
     const notes = `${current.notes ? current.notes + "\n" : ""}[${session.roleName}] ${note.trim()}`;
-    await base44.entities.Order.update(current.id, { notes });
+    await api.entities.Order.update(current.id, { notes });
     setCurrent({ ...current, notes });
     setNote("");
     onChanged?.();
@@ -62,7 +65,7 @@ export default function OrderDetailDialog({ order, settings, session, openPrint,
   };
 
   const markPaid = async () => {
-    await base44.entities.Order.update(current.id, { payment_status: "Paid" });
+    await api.entities.Order.update(current.id, { payment_status: "Paid" });
     setCurrent({ ...current, payment_status: "Paid" });
     onChanged?.();
   };

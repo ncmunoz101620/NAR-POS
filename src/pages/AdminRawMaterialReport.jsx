@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Search, Download, AlertTriangle, PackageCheck } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
-import { BRANCHES, migrateInventoryToLedger } from "@/lib/inventory";
+import { BRANCHES } from "@/lib/inventory";
 import { peso } from "@/lib/brand";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,8 +19,8 @@ export default function AdminRawMaterialReport() {
 
   const refresh = async () => {
     const [m, led] = await Promise.all([
-      base44.entities.RawMaterial.list("name"),
-      base44.entities.StockLedger.filter({ item_type: "Raw" }),
+      api.entities.RawMaterial.list("name"),
+      api.entities.StockLedger.filter({ item_type: "Raw" }),
     ]);
     setMaterials(m.filter((r) => !r.deleted_at));
     setLedger(led);
@@ -28,7 +28,7 @@ export default function AdminRawMaterialReport() {
 
   useEffect(() => {
     (async () => {
-      await migrateInventoryToLedger();
+
       await refresh();
       setLoading(false);
     })();

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 
 export const MODULES = [
   { key: "dashboard", label: "Dashboard", group: "Main", path: "/admin" },
@@ -25,58 +25,10 @@ export const MODULES = [
 
 export const ACTIONS = ["view", "create", "edit", "delete", "export", "print", "approve", "cancel", "refund"];
 
-/**
- * Resolves the logged-in user's role from their AppUser record (matched by email).
- * The role is locked to the account — it cannot be switched from the UI.
- * Users without an AppUser record (e.g. the app owner) default to the ADMIN role.
- */
 export function useSession() {
-  const [authUser, setAuthUser] = useState(null);
-  const [appUser, setAppUser] = useState(null);
-  const [role, setRole] = useState(null);
-  const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const me = await base44.auth.me();
-        if (!alive) return;
-        setAuthUser(me);
-        const [allRoles, appUsers] = await Promise.all([
-          base44.entities.Role.list("name"),
-          base44.entities.AppUser.list("name"),
-        ]);
-        if (!alive) return;
-        const mine = appUsers.find((u) => (u.email || "").toLowerCase() === (me.email || "").toLowerCase());
-        // Built-in 'user' role with no staff profile = customer → no back-office
-        // access (can() stays false, admin layout redirects them away). A 'user'
-        // who does have a staff profile is admitted with their app role.
-        if (me?.role === "user" && !mine) {
-          setLoading(false);
-          return;
-        }
-        const roleName = mine?.role_name || "ADMIN";
-        setAppUser(mine);
-        setRoles(allRoles);
-        setRole(allRoles.find((r) => r.name === roleName) || null);
-      } catch (e) {
-        // not logged in — leave role null
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
-
-  const can = (moduleKey, action = "view") => {
-    if (!role) return false;
-    const entry = (role.permissions || []).find((p) => p.module === moduleKey);
-    return !!entry && (entry.actions || []).includes(action);
-  };
-
-  const roleName = role?.name || appUser?.role_name || "";
-
-  return { roleName, role, roles, loading, can, authUser, appUser };
+ const [me,setMe]=useState(null),[loading,setLoading]=useState(true);
+ useEffect(()=>{api.auth.me().then(setMe).catch(()=>setMe(null)).finally(()=>setLoading(false));},[]);
+ const role=me?.staff_role, appUser=me?.app_user;
+ const can=(module,action='view')=>!!role?.is_active && !!appUser?.is_active && !!role.permissions?.find(p=>p.module===module)?.actions?.includes(action);
+ return {roleName:role?.name || '',role,roles:role?[role]:[],loading,can,authUser:me,appUser};
 }

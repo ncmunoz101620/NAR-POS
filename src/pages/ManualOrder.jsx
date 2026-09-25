@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Minus, Plus, Trash2, Search } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import { peso } from "@/lib/brand";
-import { nextOrderNumber, loadSettings, audit } from "@/lib/pos";
+import { loadSettings } from "@/lib/pos";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,6 +37,7 @@ export default function ManualOrder() {
     customer_source: "Walk-in", delivery_fee: 0, branch: userBranch, gcash_type: "",
   });
   const [saving, setSaving] = useState(false);
+  const [requestKey,setRequestKey] = useState(()=>crypto.randomUUID());
   const [uploadingId, setUploadingId] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(null);
   const [lastOrder, setLastOrder] = useState(null);
@@ -44,9 +45,9 @@ export default function ManualOrder() {
 
   useEffect(() => {
     Promise.all([
-      base44.entities.Product.filter({ is_active: true }, "sort_order"),
-      base44.entities.Category.filter({ is_active: true }, "sort_order"),
-      base44.entities.PaymentMethod.filter({ is_active: true }, "sort_order"),
+      api.entities.Product.filter({ is_active: true }, "sort_order"),
+      api.entities.Category.filter({ is_active: true }, "sort_order"),
+      api.entities.PaymentMethod.filter({ is_active: true }, "sort_order"),
       loadSettings(),
     ]).then(([p, c, m, s]) => {
       setProducts(p); setCategories(c); setMethods(m); setSettings(s);
@@ -106,7 +107,7 @@ export default function ManualOrder() {
     if (!file) return;
     setUploadingId(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await api.upload(file, "proof");
       set("discount_id_url", file_url);
       toast({ title: "ID uploaded" });
     } catch {
@@ -120,7 +121,7 @@ export default function ManualOrder() {
     if (!file) return;
     setUploadingProof(field);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await api.upload(file, "proof");
       set(field, file_url);
       if (field === "payment_reference") set("payment_status", "Paid");
       toast({ title: "Proof uploaded" });
@@ -137,7 +138,7 @@ export default function ManualOrder() {
     const res = await fetch(value);
     const blob = await res.blob();
     const file = new File([blob], "proof.jpg", { type: blob.type });
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await api.upload(file, "proof");
     return file_url;
   };
 
@@ -155,16 +156,15 @@ export default function ManualOrder() {
       // entity fields stay within size limits (base64 hangs the request).
       const payment_reference = await ensureUploaded(form.payment_reference);
       const payment_reference_2 = await ensureUploaded(form.payment_reference_2);
-      const order_number = await nextOrderNumber();
       const now = new Date().toISOString();
       const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
       const isReservation = form.preferred_date && form.preferred_date > todayStr;
       const status = isReservation ? "For Reservation" : "Confirmed";
-      const order = await base44.entities.Order.create({
+      const order = await api.entities.Order.create({
         ...form,
+      request_key: requestKey,
         payment_reference,
         payment_reference_2,
-        order_number,
         status,
         subtotal,
         discount: discountAmount,
@@ -177,11 +177,12 @@ export default function ManualOrder() {
         items: lines.map((l) => ({ ...l, subtotal: l.unit_price * l.quantity })),
         status_history: [{ status, at: now, by: creatorName }],
       });
-      await audit("Create order", "manual_order", { record_id: order_number });
+
       setLines([]);
+      setRequestKey(crypto.randomUUID());
       setForm((f) => ({ ...f, customer_name: "", customer_phone: "", address: "", province: "", city: "", barangay: "", postcode: "", payment_reference: "", payment_reference_2: "", notes: "", customer_source: "Walk-in", discount: 0, discount_type: "none", discount_reason: "", discount_id_url: "", delivery_fee: 0, preferred_date: "", preferred_time: "" }));
       setLastOrder(order);
-      toast({ title: `Order ${order_number} created` });
+      toast({ title: `Order ${order.order_number} created` });
       const copies = settings?.receipt_copies || 1;
       setTimeout(async () => {
         const res = await thermalPrinter.printReceiptSmart(order, settings, copies);

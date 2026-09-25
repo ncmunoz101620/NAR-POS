@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useOutletContext } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { CheckCircle2, Clock } from "lucide-react";
-import { peso, ORDER_STATUSES } from "@/lib/brand";
+import { peso } from "@/lib/brand";
 import StatusBadge from "@/components/StatusBadge";
 
 const TIMELINE = ["Pending", "Confirmed", "Preparing", "Ready", "Out for Delivery", "Completed"];
@@ -14,10 +14,10 @@ export default function OrderConfirmation() {
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
-    base44.entities.Order.filter({ order_number: orderNumber }).then((list) => {
+    api.entities.Order.filter({ order_number: orderNumber }).then((list) => {
       if (list.length) setOrder(list[0]);
       else setMissing(true);
-    });
+    }).catch(()=>setMissing(true));
   }, [orderNumber]);
 
   if (missing) {
@@ -41,6 +41,7 @@ export default function OrderConfirmation() {
         <h1 className="mt-4 text-3xl font-extrabold text-[#581E12] tracking-tight">Salamat sa order!</h1>
         <p className="mt-2 text-[#7a4b3a]">We received your order. Keep this order number handy.</p>
         <p className="mt-5 inline-block rounded-2xl bg-[#581E12] text-white px-6 py-3 font-mono font-bold tracking-wider">{order.order_number}</p>
+        <p className="mt-3 text-xs text-[#7a4b3a]">Save your private tracking code: {new URLSearchParams(location.search).get('token') || localStorage.getItem('order_token_'+order.order_number)}</p>
         <div className="mt-4 flex items-center justify-center gap-3">
           <StatusBadge status={order.status} />
           <span className="text-sm text-[#7a4b3a] flex items-center gap-1.5">

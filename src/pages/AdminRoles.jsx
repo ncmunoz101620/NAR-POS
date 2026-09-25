@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
-import { audit } from "@/lib/pos";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,7 +21,7 @@ export default function AdminRoles() {
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
 
-  const refresh = () => base44.entities.Role.list("name").then(setRows);
+  const refresh = () => api.entities.Role.list("name").then(setRows);
   useEffect(() => { refresh(); }, []);
 
   const save = async () => {
@@ -30,21 +30,21 @@ export default function AdminRoles() {
     if (rows.some((r) => r.name.toUpperCase() === name && r.id !== editing.id))
       return toast({ title: "That role name already exists", variant: "destructive" });
     const payload = { name, description: editing.description, is_active: editing.is_active, permissions: editing.permissions || [] };
-    if (editing.id) await base44.entities.Role.update(editing.id, payload);
-    else await base44.entities.Role.create(payload);
-    await audit(editing.id ? "Edit role" : "Create role", "roles", { record_id: name });
+    if (editing.id) await api.entities.Role.update(editing.id, payload);
+    else await api.entities.Role.create(payload);
+
     setEditing(null); refresh();
     toast({ title: "Role saved" });
   };
 
   const remove = async () => {
-    const users = await base44.entities.AppUser.filter({ role_name: confirm.name });
+    const users = await api.entities.AppUser.filter({ role_name: confirm.name });
     if (users.length) {
       setConfirm(null);
       return toast({ title: "Unable to delete this role", description: `${users.length} user(s) are still assigned to it.`, variant: "destructive" });
     }
-    await base44.entities.Role.delete(confirm.id);
-    await audit("Delete role", "roles", { record_id: confirm.name });
+    await api.entities.Role.delete(confirm.id);
+
     setConfirm(null); refresh();
     toast({ title: "Role deleted" });
   };

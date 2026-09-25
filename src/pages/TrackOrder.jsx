@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export default function TrackOrder() {
   const [value, setValue] = useState("");
+  const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -15,10 +16,13 @@ export default function TrackOrder() {
     if (!num) return setError("Enter your order number");
     setLoading(true);
     setError("");
-    const list = await base44.entities.Order.filter({ order_number: num });
-    setLoading(false);
-    if (list.length) navigate(`/order/${num}`);
-    else setError("We couldn't find that order number.");
+    try {
+      if (token.trim()) localStorage.setItem('order_token_'+num,token.trim());
+      const list = await api.entities.Order.filter({ order_number: num });
+      if (list.length) navigate(`/order/${num}`);
+      else setError("We couldn't find that order number.");
+    } catch { setError('Enter the tracking code from your confirmation, or use the original browser.'); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -40,6 +44,7 @@ export default function TrackOrder() {
           {loading ? "…" : "Track"}
         </button>
       </div>
+      <Input value={token} onChange={e=>setToken(e.target.value)} placeholder="Tracking code (when using another browser)" className="mt-3 bg-white border-[#F8CFB1]" />
       {error && <p className="mt-4 text-sm font-semibold text-[#E83934]">{error}</p>}
     </div>
   );

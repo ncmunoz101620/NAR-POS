@@ -5,8 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { base44 } from "@/api/base44Client";
-import { audit } from "@/lib/pos";
+import { api } from "@/api/client";
+
 import { peso, ORDER_STATUSES } from "@/lib/brand";
 
 const ORDER_TYPES = ["Delivery", "Pick-up", "Walk-in"];
@@ -41,7 +41,7 @@ export default function OrderEditDialog({ order, settings, session, onClose, onC
   const [methods, setMethods] = useState([]);
 
   useEffect(() => {
-    base44.entities.PaymentMethod.filter({ is_active: true }, "sort_order").then(setMethods).catch(() => {});
+    api.entities.PaymentMethod.filter({ is_active: true }, "sort_order").then(setMethods).catch(() => {});
   }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -82,8 +82,8 @@ export default function OrderEditDialog({ order, settings, session, onClose, onC
         notes: form.notes,
         status: form.status,
       };
-      await base44.entities.Order.update(order.id, payload);
-      await audit("Edit order", "orders", { record_id: order.order_number, new_value: JSON.stringify(payload).slice(0, 500) });
+      await api.entities.Order.update(order.id, payload);
+
       toast({ title: `Order ${order.order_number} updated` });
       onChanged?.();
       onClose();

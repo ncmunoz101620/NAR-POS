@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import React, { useEffect, useState } from "react";
+import { request } from "@/api/client";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, CartesianGrid,
 } from "recharts";
@@ -8,7 +8,6 @@ import PageHeader from "@/components/admin/PageHeader";
 import StatCard from "@/components/admin/StatCard";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import { peso } from "@/lib/brand";
-import { toManilaDate } from "@/lib/datetime";
 import { Input } from "@/components/ui/input";
 import BranchFilter from "@/components/admin/BranchFilter";
 
@@ -50,72 +49,24 @@ function rangeFor(preset, custom) {
 }
 
 export default function AdminDashboard() {
-  const [orders, setOrders] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [ingredients, setIngredients] = useState([]);
-  const [preset, setPreset] = useState("This Month");
-  const [custom, setCustom] = useState({ from: "", to: "" });
-  const [branch, setBranch] = useState("all");
-
-  useEffect(() => {
-    Promise.all([
-      base44.entities.Order.list("-created_date", 500),
-      base44.entities.Product.list(),
-      base44.entities.Ingredient.list(),
-    ]).then(([o, p, i]) => {
-      setOrders(o);
-      setProducts(p);
-      setIngredients(i);
-    });
-  }, []);
-
-  const [from, to] = useMemo(() => rangeFor(preset, custom), [preset, custom]);
-  const scoped = useMemo(
-    () => orders.filter((o) => {
-      if (branch !== "all" && o.branch !== branch) return false;
-      const d = toManilaDate(o.created_date);
-      return d >= from && d < to;
-    }),
-    [orders, from, to, branch]
-  );
-
-  const valid = scoped.filter((o) => !["Cancelled", "Refunded"].includes(o.status));
-  const sales = valid.reduce((s, o) => s + (o.total || 0), 0);
-  const avg = valid.length ? sales / valid.length : 0;
-  const lowStock = ingredients.filter((i) => i.current_stock <= (i.min_stock || 0));
-
-  const byDay = useMemo(() => {
-    const map = {};
-    scoped.forEach((o) => {
-      const k = toManilaDate(o.created_date).toLocaleDateString("en-PH", { month: "short", day: "numeric", timeZone: "Asia/Manila" });
-      map[k] = map[k] || { day: k, sales: 0, orders: 0 };
-      if (!["Cancelled", "Refunded"].includes(o.status)) map[k].sales += o.total || 0;
-      map[k].orders += 1;
-    });
-    return Object.values(map).reverse();
-  }, [scoped]);
-
-  const byStatus = useMemo(() => {
-    const map = {};
-    scoped.forEach((o) => { map[o.status] = (map[o.status] || 0) + 1; });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [scoped]);
-
-  const bySource = useMemo(() => {
-    const map = {};
-    scoped.forEach((o) => { map[o.customer_source || "—"] = (map[o.customer_source || "—"] || 0) + 1; });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [scoped]);
-
-  const byPayment = useMemo(() => {
-    const map = {};
-    valid.forEach((o) => { map[o.payment_method || "Unspecified"] = (map[o.payment_method || "Unspecified"] || 0) + (o.total || 0); });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [valid]);
-
+  const [preset,setPreset]=useState('This Month');
+  const [custom,setCustom]=useState({from:'',to:''});
+  const [branch,setBranch]=useState('all');
+  const [report,setReport]=useState({});
+  const [error,setError]=useState('');
+  useEffect(()=>{
+    const [from,to]=rangeFor(preset,custom);
+    const fmt=d=>d.toLocaleDateString('en-CA');
+    let alive=true;
+    request('/reports/dashboard?'+new URLSearchParams({from:fmt(from),to:fmt(new Date(to.getTime()-1)),branch}))
+      .then(r=>{if(alive){setReport(r);setError('');}}).catch(e=>{if(alive)setError(e.message);});
+    return ()=>{alive=false;};
+  },[preset,custom,branch]);
+  const {sales=0,avg=0,byDay=[],byStatus=[],bySource=[],byPayment=[],lowStock=[]}=report;
   return (
     <ModuleGuard module="dashboard">
-      <PageHeader title="Dashboard" subtitle={`${preset} · ${valid.length} valid orders`}>
+      {error && <p role="alert" className="text-red-700">{error}</p>}
+      <PageHeader title="Dashboard" subtitle={`${preset} · ${report.validCount || 0} valid orders`}>
         <BranchFilter value={branch} onChange={setBranch} />
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map((p) => (
@@ -141,13 +92,13 @@ export default function AdminDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Sales" value={peso(sales)} icon={Banknote} tone="orange" hint={`${preset}`} />
-        <StatCard label="Orders" value={scoped.length} icon={ReceiptText} tone="brown" />
-        <StatCard label="Pending" value={scoped.filter((o) => o.status === "Pending").length} icon={Clock} tone="gold" />
-        <StatCard label="Completed" value={scoped.filter((o) => o.status === "Completed").length} icon={CheckCircle2} tone="green" />
-        <StatCard label="Cancelled" value={scoped.filter((o) => o.status === "Cancelled").length} icon={XCircle} tone="red" />
+        <StatCard label="Orders" value={report.orderCount || 0} icon={ReceiptText} tone="brown" />
+        <StatCard label="Pending" value={byStatus.find(s=>s.name==='Pending')?.value || 0} icon={Clock} tone="gold" />
+        <StatCard label="Completed" value={byStatus.find(s=>s.name==='Completed')?.value || 0} icon={CheckCircle2} tone="green" />
+        <StatCard label="Cancelled" value={byStatus.find(s=>s.name==='Cancelled')?.value || 0} icon={XCircle} tone="red" />
         <StatCard label="Avg Order Value" value={peso(avg)} icon={TrendingUp} tone="pink" />
-        <StatCard label="Total Products" value={products.length} icon={UtensilsCrossed} tone="brown" />
-        <StatCard label="Low Stock Items" value={lowStock.length} icon={AlertTriangle} tone="red" />
+        <StatCard label="Total Products" value={report.productCount || 0} icon={UtensilsCrossed} tone="brown" />
+        <StatCard label="Low Stock Items" value={report.lowStockCount || 0} icon={AlertTriangle} tone="red" />
       </div>
 
       <div className="grid gap-4 mt-6 lg:grid-cols-3">
@@ -220,7 +171,7 @@ export default function AdminDashboard() {
                 <span className="text-[#E83934] font-bold">{i.current_stock} {i.unit}</span>
               </div>
             ))}
-            {!lowStock.length && <p className="text-sm text-[#7a4b3a]/60">All ingredients are above minimum stock.</p>}
+            {!report.lowStockCount || 0 && <p className="text-sm text-[#7a4b3a]/60">All ingredients are above minimum stock.</p>}
           </div>
         </div>
       </div>

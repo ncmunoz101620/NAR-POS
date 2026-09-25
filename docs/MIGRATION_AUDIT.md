@@ -65,22 +65,22 @@ Laravel 13 supports the installed PHP 8.3 (official release notes: https://larav
 Legend: [ ] Not Started; [~] In Progress; [x] Completed; [!] Blocked.
 
 - [x] Phase 1: source audit and schema/workflow mapping
-- [~] Phase 2: Laravel foundation
-- [ ] Phase 3: migrations/models
-- [ ] Phase 4: authentication
-- [ ] Phase 5: roles/permissions
-- [ ] Phase 6: products/categories
-- [ ] Phase 7: materials/recipes
-- [ ] Phase 8: inventory/journal
-- [ ] Phase 9: orders/manual orders
-- [ ] Phase 10: manual payment confirmation
-- [ ] Phase 11: storefront
-- [ ] Phase 12: admin UI
-- [ ] Phase 13: kitchen polling
-- [ ] Phase 14: reports
-- [ ] Phase 15: audit/settings/uploads
-- [ ] Phase 16: automated regression tests
-- [ ] Phase 17: remove runtime platform dependencies
-- [ ] Phase 18: final verification and deployment docs
+- [x] Phase 2: Laravel foundation
+- [x] Phase 3: migrations/models
+- [x] Phase 4: authentication implementation and local tests
+- [x] Phase 5: roles/permissions
+- [x] Phase 6: products/categories
+- [x] Phase 7: materials/recipes
+- [x] Phase 8: inventory/journal
+- [x] Phase 9: orders/manual orders
+- [x] Phase 10: manual payment confirmation
+- [x] Phase 11: storefront and browser checkout smoke test
+- [x] Phase 12: retained admin UI connected to Laravel
+- [x] Phase 13: kitchen polling
+- [x] Phase 14: SQL dashboard/sales/ingredient reports
+- [x] Phase 15: audit/settings/uploads
+- [x] Phase 16: automated local regression tests
+- [x] Phase 17: remove runtime platform dependencies; archive schemas
+- [~] Phase 18: local regression and documentation complete; deployment acceptance pending items below and VALIDATION.md
 - [!] Production record migration requires a data export not present in the archive.
 - [!] Actual email delivery, Google provider and physical printer tests require deployment configuration/hardware.

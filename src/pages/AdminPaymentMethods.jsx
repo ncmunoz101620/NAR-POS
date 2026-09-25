@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
-import { audit } from "@/lib/pos";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,23 +23,23 @@ export default function AdminPaymentMethods() {
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
 
-  const refresh = () => base44.entities.PaymentMethod.list("sort_order").then(setRows);
+  const refresh = () => api.entities.PaymentMethod.list("sort_order").then(setRows);
   useEffect(() => { refresh(); }, []);
 
   const save = async () => {
     if (!editing.name.trim()) return toast({ title: "Payment method name is required", variant: "destructive" });
     const payload = { ...editing, sort_order: Number(editing.sort_order) || 0 };
     delete payload.id;
-    if (editing.id) await base44.entities.PaymentMethod.update(editing.id, payload);
-    else await base44.entities.PaymentMethod.create(payload);
-    await audit("Payment method change", "payment_methods", { record_id: editing.name });
+    if (editing.id) await api.entities.PaymentMethod.update(editing.id, payload);
+    else await api.entities.PaymentMethod.create(payload);
+
     setEditing(null); refresh();
     toast({ title: "Payment method saved" });
   };
 
   const remove = async () => {
-    await base44.entities.PaymentMethod.delete(confirm.id);
-    await audit("Delete payment method", "payment_methods", { record_id: confirm.name });
+    await api.entities.PaymentMethod.delete(confirm.id);
+
     setConfirm(null); refresh();
     toast({ title: "Payment method removed" });
   };

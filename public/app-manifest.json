@@ -4,12 +4,12 @@
   "description": "A comprehensive restaurant management system featuring a mobile-friendly customer ordering platform and a powerful admin dashboard for inventory, recipes, and sales tracking.",
   "icons": [
     {
-      "src": "https://media.base44.com/images/public/6a86963105c959fd9a7fd6fd/9268b659c_logo.png",
+      "src": "/images/app-icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://media.base44.com/images/public/6a86963105c959fd9a7fd6fd/9268b659c_logo.png",
+      "src": "/images/app-icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }

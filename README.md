@@ -1,77 +1,54 @@
-# Base44 Project
+# Nanay Asa Restaurant
 
-Use this repository to run and edit the app locally, then publish changes back through Base44.
+Self-contained Laravel 13 backend with the existing React 18 storefront and staff UI. PHP sessions, role/module/branch authorization, relational catalog/recipes, transactional orders/inventory, reports, local uploads and manual payment confirmation replace the former hosted backend. No Base44 runtime dependency remains.
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+## Local setup
 
-## Prerequisites
-
-1. Clone the repository using the project's Git URL.
-2. Navigate to the project directory.
-3. Install dependencies: `npm install`.
-4. Install the Base44 CLI: `npm install -g base44@latest`.
-
-See the [Base44 CLI docs](https://docs.base44.com/developers/references/cli/get-started/overview) if you want to run Base44 commands directly.
-
-## Run Locally
-
-Run the full local development environment from the project root:
+Requirements: PHP 8.3+, Composer 2, Node 20+, and MySQL/MariaDB or SQLite for development.
 
 ```bash
-base44 dev
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
 ```
 
-`base44 dev` starts the local Base44 development backend and, when this app is configured for it, also starts the frontend dev server for you. Use the frontend URL printed by the command.
+On PowerShell use `Copy-Item .env.example .env`. Set APP_URL and database/mail values in `.env`. For MySQL, first create a database (for example `CREATE DATABASE nanay_asa CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`) and configure an application database user. For SQLite, create an empty `database/database.sqlite`, set `DB_CONNECTION=sqlite` and remove DB_DATABASE so Laravel uses that file.
 
-For example, when the Base44 project config includes a `serveCommand`, `base44 dev` can launch the frontend too:
-
-```json5
-{
-  "site": {
-    "serveCommand": "npm run dev"
-  }
-}
+```bash
+php artisan migrate
+php artisan db:seed
+php artisan app:create-admin admin@example.com
+php artisan storage:link
 ```
 
-In a Base44 project this lives in `base44/config.jsonc`.
+The administrator command securely prompts for a password. No default admin password is committed. Development/testing seeds include clearly marked sample catalog, ingredients, raw material and recipe; production seeds do not. Role defaults are starting points, not an export of the original staff permissions.
 
-## Run Only The Frontend
-
-If you only want to work on the frontend against the hosted Base44 backend, run:
+Run these in separate terminals:
 
 ```bash
 npm run dev
+php artisan serve --host=127.0.0.1 --port=8137
 ```
 
-Open the local URL printed by Vite.
+Open [the local app](http://127.0.0.1:8137). Alternatively run `npm run build` and serve Laravel without a Vite development server. Staff login is `/login`; the storefront is `/`. Development mail is written to `storage/logs/laravel.log`; configure SMTP before testing real delivery. New staff profiles use password-reset email to establish their password. Optional Google login needs GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI.
 
-## Use The Hosted Backend
-
-For frontend-only development, create or update `.env.local` in the project root:
+## Checks and deployment
 
 ```bash
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=https://your-app.base44.app
+php artisan test
+npm run build
+npm run lint
 ```
 
-`VITE_BASE44_APP_ID` identifies the Base44 app.
+`npm run typecheck` is retained but currently fails on untyped React/Radix inference; see [validation](docs/VALIDATION.md). MySQL/MariaDB CI is provided, but only SQLite was executed locally. Deploy with HTTPS, production environment values, `composer install --no-dev --optimize-autoloader`, `npm ci && npm run build`, `php artisan migrate --force`, `php artisan storage:link` and `php artisan optimize`. Full instructions: [deployment](docs/DEPLOYMENT.md).
 
-`VITE_BASE44_APP_BASE_URL` tells the Base44 Vite plugin where to send local `/api` requests. Point it at your deployed Base44 app URL when you want the local frontend to use the hosted backend.
+## Migration documentation
 
-When you use `base44 dev`, the command injects the local Base44 values for you, so `.env.local` is mainly needed for frontend-only workflows.
+- [Original audit and phase checklist](docs/MIGRATION_AUDIT.md)
+- [Architecture and business rules](docs/ARCHITECTURE.md)
+- [Database and production data cutover](docs/DATABASE.md)
+- [Source dependency inventory](docs/SOURCE_INVENTORY.md)
+- [Executed checks and remaining limitations](docs/VALIDATION.md)
 
-## Publish Your Changes
-
-After pushing your changes to git, open the Base44 dashboard and publish the app:
-
-```bash
-base44 dashboard open
-```
-
-## Docs & Support
-
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Base44 CLI command reference: [https://docs.base44.com/developers/references/cli/commands/introduction](https://docs.base44.com/developers/references/cli/commands/introduction)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+The supplied archive had no production records. Live data import/reconciliation, SMTP/Google configuration, printer acceptance and target database concurrency validation remain deployment prerequisites. The browser smoke test created one clearly named Migration Test order using seeded demo data.

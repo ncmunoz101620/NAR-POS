@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api, request } from "@/api/client";
 import { Plus, Search } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import BranchSelector from "@/components/admin/BranchSelector";
-import { audit } from "@/lib/pos";
-import { ensureLedgerRows, getLedgerRow, migrateInventoryToLedger } from "@/lib/inventory";
+
+
 import { formatManila } from "@/lib/datetime";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,11 +30,11 @@ export default function AdminInventory() {
 
   const refresh = async () => {
     const [t, i, r, led, u] = await Promise.all([
-      base44.entities.InventoryTransaction.list("-created_date", 300),
-      base44.entities.Ingredient.list("name"),
-      base44.entities.RawMaterial.list("name"),
-      base44.entities.StockLedger.list(),
-      base44.entities.AppUser.list("name").catch(() => []),
+      api.entities.InventoryTransaction.list("-created_date", 300),
+      api.entities.Ingredient.list("name"),
+      api.entities.RawMaterial.list("name"),
+      api.entities.StockLedger.list(),
+      api.entities.AppUser.list("name").catch(() => []),
     ]);
     setTxs(t);
     setIngredients(i);
@@ -45,7 +45,7 @@ export default function AdminInventory() {
 
   useEffect(() => {
     (async () => {
-      await migrateInventoryToLedger();
+
       refresh();
     })();
   }, []);
@@ -87,28 +87,8 @@ export default function AdminInventory() {
     const qty = Number(form.quantity);
     if (!qty || Number.isNaN(qty)) return toast({ title: "Enter a valid quantity", variant: "destructive" });
 
-    await ensureLedgerRows(item, form.ingredient_type);
-    const row = await getLedgerRow(item.id, form.ingredient_type, branch);
-    if (!row) return toast({ title: "Ledger row missing", variant: "destructive" });
 
-    const signed = form.type === "Waste" ? -Math.abs(qty) : qty;
-    const newStock = Math.round((row.current_stock + signed) * 1000) / 1000;
-    if (newStock < 0) return toast({ title: "This movement would make stock negative", variant: "destructive" });
-
-    await base44.entities.StockLedger.update(row.id, { current_stock: newStock });
-    await base44.entities.InventoryTransaction.create({
-      ingredient_id: item.id,
-      ingredient_name: item.name,
-      ingredient_type: form.ingredient_type,
-      branch,
-      type: form.type,
-      quantity: signed,
-      unit: item.unit,
-      reference: form.reference,
-      user_name: (await base44.auth.me().catch(() => null))?.full_name || "System",
-      notes: form.notes,
-    });
-    await audit(`Inventory ${form.type}`, "inventory", { record_id: item.name, new_value: String(newStock) });
+    await request('/inventory/movements','POST',{...form,branch,quantity:qty});
     setForm(null);
     refresh();
     toast({ title: "Inventory movement recorded" });

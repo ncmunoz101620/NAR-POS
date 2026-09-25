@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Plus, Search, Pencil, AlertTriangle, FileSpreadsheet, Trash2, BarChart3 } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import ImportIngredientsDialog from "@/components/admin/ImportIngredientsDialog";
 import IngredientInventorySummary from "@/components/admin/IngredientInventorySummary";
 import { peso, UNITS } from "@/lib/brand";
-import { audit } from "@/lib/pos";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +31,7 @@ export default function AdminIngredients() {
   const [deleting, setDeleting] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
 
-  const refresh = () => base44.entities.Ingredient.list("name").then((r) => setRows(r.filter((x) => !x.deleted_at)));
+  const refresh = () => api.entities.Ingredient.list("name").then((r) => setRows(r.filter((x) => !x.deleted_at)));
   useEffect(() => { refresh(); }, []);
 
   const filtered = useMemo(() => {
@@ -59,36 +59,16 @@ export default function AdminIngredients() {
     if (!canCost) delete payload.cost_per_unit;
     delete payload.id;
 
-    if (editing.id) {
-      const before = rows.find((r) => r.id === editing.id);
-      await base44.entities.Ingredient.update(editing.id, payload);
-      if (before && before.current_stock !== payload.current_stock) {
-        const diff = payload.current_stock - before.current_stock;
-        await base44.entities.InventoryTransaction.create({
-          ingredient_id: editing.id, ingredient_name: editing.name, type: "Adjustment",
-          quantity: diff, unit: editing.unit, reference: "Ingredient edit",
-          user_name: localStorage.getItem("na_active_role") || "ADMIN",
-        });
-      }
-    } else {
-      const created = await base44.entities.Ingredient.create(payload);
-      if (payload.current_stock) {
-        await base44.entities.InventoryTransaction.create({
-          ingredient_id: created.id, ingredient_name: created.name, type: "Stock In",
-          quantity: payload.current_stock, unit: created.unit, reference: "Opening stock",
-          user_name: localStorage.getItem("na_active_role") || "ADMIN",
-        });
-      }
-    }
-    await audit(editing.id ? "Edit ingredient" : "Create ingredient", "ingredients", { record_id: editing.name });
+    if(editing.id) await api.entities.Ingredient.update(editing.id,payload);
+    else await api.entities.Ingredient.create(payload);
     setEditing(null); refresh();
     toast({ title: "Ingredient saved" });
   };
 
   const confirmDelete = async () => {
     if (!deleting) return;
-    await base44.entities.Ingredient.update(deleting.id, { deleted_at: new Date().toISOString() });
-    await audit("Delete ingredient", "ingredients", { record_id: deleting.name });
+    await api.entities.Ingredient.update(deleting.id, { deleted_at: new Date().toISOString() });
+
     setDeleting(null);
     refresh();
     toast({ title: "Ingredient deleted" });

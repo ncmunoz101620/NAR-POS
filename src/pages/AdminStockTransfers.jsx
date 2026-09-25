@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api, request } from "@/api/client";
 import { Plus, ArrowLeftRight, Search } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
-import { audit } from "@/lib/pos";
-import { BRANCHES, ensureLedgerRows, getLedgerRow } from "@/lib/inventory";
+
+import { BRANCHES } from "@/lib/inventory";
 import { formatManila } from "@/lib/datetime";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,9 +23,9 @@ export default function AdminStockTransfers() {
 
   const refresh = async () => {
     const [t, i, r] = await Promise.all([
-      base44.entities.StockTransfer.list("-created_date", 300),
-      base44.entities.Ingredient.list("name"),
-      base44.entities.RawMaterial.list("name"),
+      api.entities.StockTransfer.list("-created_date", 300),
+      api.entities.Ingredient.list("name"),
+      api.entities.RawMaterial.list("name"),
     ]);
     setTransfers(t);
     setIngredients(i.filter((x) => !x.deleted_at));
@@ -53,67 +53,9 @@ export default function AdminStockTransfers() {
     if (!item) return toast({ title: "Item not found", variant: "destructive" });
 
     // Ensure ledger rows exist for both branches
-    await ensureLedgerRows(item, form.item_type);
 
-    const fromRow = await getLedgerRow(item.id, form.item_type, form.from_branch);
-    if (!fromRow || fromRow.current_stock < qty) {
-      return toast({ title: `Insufficient stock in ${form.from_branch}`, variant: "destructive" });
-    }
 
-    // Debit source, credit destination
-    await base44.entities.StockLedger.update(fromRow.id, {
-      current_stock: Math.round((fromRow.current_stock - qty) * 1000) / 1000,
-    });
-    const toRow = await getLedgerRow(item.id, form.item_type, form.to_branch);
-    if (toRow) {
-      await base44.entities.StockLedger.update(toRow.id, {
-        current_stock: Math.round((toRow.current_stock + qty) * 1000) / 1000,
-      });
-    }
-
-    // Log transfer record + transactions
-    await base44.entities.StockTransfer.create({
-      item_id: item.id,
-      item_type: form.item_type,
-      item_name: item.name,
-      from_branch: form.from_branch,
-      to_branch: form.to_branch,
-      quantity: qty,
-      unit: item.unit,
-      user_name: (await base44.auth.me().catch(() => null))?.email || "System",
-      notes: form.notes,
-      status: "Completed",
-    });
-    await base44.entities.InventoryTransaction.bulkCreate([
-      {
-        ingredient_id: item.id,
-        ingredient_name: item.name,
-        ingredient_type: form.item_type,
-        branch: form.from_branch,
-        type: "Transfer Out",
-        quantity: -qty,
-        unit: item.unit,
-        reference: `Transfer → ${form.to_branch}`,
-        user_name: "System",
-        notes: form.notes,
-      },
-      {
-        ingredient_id: item.id,
-        ingredient_name: item.name,
-        ingredient_type: form.item_type,
-        branch: form.to_branch,
-        type: "Transfer In",
-        quantity: qty,
-        unit: item.unit,
-        reference: `Transfer ← ${form.from_branch}`,
-        user_name: "System",
-        notes: form.notes,
-      },
-    ]);
-    await audit("Stock transfer", "stock_transfers", {
-      record_id: item.name,
-      new_value: `${qty} ${item.unit} ${form.from_branch} → ${form.to_branch}`,
-    });
+    await request('/inventory/transfers','POST',{...form,quantity:qty});
     setForm(null);
     refresh();
     toast({ title: "Stock transferred successfully" });

@@ -1,5 +1,5 @@
 export const LOGO_URL =
-  "https://media.base44.com/images/public/user_69c1d7b19397dda792165194/f91cef088_481161528_626196233709587_1778670251383652485_n.png";
+  "/images/logo.png";
 
 export const peso = (n, symbol = "₱") =>
   `${symbol}${(Math.round((Number(n) || 0) * 100) / 100).toLocaleString("en-PH", {

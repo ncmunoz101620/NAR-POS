@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Phone, Clock, Mail } from "lucide-react";
+import { MapPin, Phone, Clock } from "lucide-react";
 import { LOGO_URL } from "@/lib/brand";
 
 export default function SiteFooter({ settings }) {

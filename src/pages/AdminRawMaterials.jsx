@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Plus, Search, Pencil, AlertTriangle } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import BranchSelector from "@/components/admin/BranchSelector";
 import { peso, UNITS } from "@/lib/brand";
-import { audit } from "@/lib/pos";
-import { ensureLedgerRows, migrateInventoryToLedger } from "@/lib/inventory";
+
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,8 +31,8 @@ export default function AdminRawMaterials() {
 
   const refresh = async () => {
     const [all, led] = await Promise.all([
-      base44.entities.RawMaterial.list("name"),
-      base44.entities.StockLedger.filter({ item_type: "Raw" }),
+      api.entities.RawMaterial.list("name"),
+      api.entities.StockLedger.filter({ item_type: "Raw" }),
     ]);
     setRows(all.filter((x) => !x.deleted_at));
     setLedger(led);
@@ -40,7 +40,7 @@ export default function AdminRawMaterials() {
 
   useEffect(() => {
     (async () => {
-      await migrateInventoryToLedger();
+
       refresh();
     })();
   }, []);
@@ -81,12 +81,12 @@ export default function AdminRawMaterials() {
     delete payload.id;
 
     if (editing.id) {
-      await base44.entities.RawMaterial.update(editing.id, payload);
+      await api.entities.RawMaterial.update(editing.id, payload);
     } else {
-      const created = await base44.entities.RawMaterial.create(payload);
-      await ensureLedgerRows(created, "Raw");
+      const created = await api.entities.RawMaterial.create(payload);
+
     }
-    await audit(editing.id ? "Edit raw material" : "Create raw material", "raw_materials", { record_id: editing.name });
+
     setEditing(null);
     refresh();
     toast({ title: "Raw material saved" });

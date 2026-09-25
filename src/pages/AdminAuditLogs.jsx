@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Search } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
@@ -12,7 +12,7 @@ export default function AdminAuditLogs() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
 
-  useEffect(() => { base44.entities.AuditLog.list("-created_date", 300).then(setRows); }, []);
+  useEffect(() => { api.entities.AuditLog.list("-created_date", 300).then(setRows); }, []);
 
   const filtered = useMemo(() => {
     const s = q.toLowerCase();

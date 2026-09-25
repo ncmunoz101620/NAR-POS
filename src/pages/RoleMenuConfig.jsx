@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import { MODULES, ACTIONS } from "@/lib/permissions";
-import { audit } from "@/lib/pos";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
@@ -16,7 +16,7 @@ export default function RoleMenuConfig() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    base44.entities.Role.list("name").then((r) => {
+    api.entities.Role.list("name").then((r) => {
       setRoles(r);
       if (r.length) select(r[0]);
     });
@@ -49,9 +49,9 @@ export default function RoleMenuConfig() {
     const permissions = Object.entries(matrix)
       .filter(([, set]) => set.size)
       .map(([module, set]) => ({ module, actions: [...set] }));
-    await base44.entities.Role.update(roleId, { permissions });
-    await audit("Permission change", "role_menu", { record_id: roles.find((r) => r.id === roleId)?.name });
-    const fresh = await base44.entities.Role.list("name");
+    await api.entities.Role.update(roleId, { permissions });
+
+    const fresh = await api.entities.Role.list("name");
     setRoles(fresh);
     setSaving(false);
     toast({ title: "Permissions updated" });

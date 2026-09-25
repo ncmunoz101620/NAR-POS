@@ -1,34 +1,9 @@
-# AGENTS.md
+# Working in this repository
 
-## Project Context
+This is a Laravel 13 / React 18 restaurant application. Read README.md and docs/ARCHITECTURE.md before changing business behavior. The original hosted-backend schemas are archived in docs/legacy-schema for migration evidence only.
 
-This is a Base44 app repository. Treat it as user-owned application code, keep changes focused on the user's request, and preserve existing project conventions.
+Preserve the existing React UI and branding. Keep financial/order rules in OrderService and every stock mutation in InventoryService. Authorize server operations through Access/Gates; never rely on frontend visibility. Keep audit and inventory journals immutable. Do not log credentials or private payment/ID evidence.
 
-Start with `README.md` for local setup, environment variables, and publish workflow.
+Use PHP 8.3+, Composer, and npm. Run php artisan test, npm run build and npm run lint. The known JavaScript typecheck limitations are documented in docs/VALIDATION.md; do not hide new errors or claim that typechecking passes. Never commit .env, local databases, vendor, node_modules or uploaded customer files.
 
-## Base44 References
-
-- CLI overview: https://docs.base44.com/developers/references/cli/get-started/overview.md
-- Agent skills: https://docs.base44.com/developers/backend/overview/skills.md
-
-If your agent supports Agent Skills, install or update Base44 skills before Base44-specific work:
-
-```bash
-npx skills add base44/skills
-```
-
-## Key Files
-
-- `src/`: frontend application source.
-- `src/api/base44Client.js`: frontend Base44 SDK client.
-- `vite.config.js`: Vite config and Base44 Vite plugin setup.
-- `.env.local`: local-only environment values; never commit secrets.
-
-## Working Notes
-
-- Use `base44 dev` as the default local development command when you need the local Base44 backend. It can run the backend and frontend together.
-- When docs or code mention the frontend being started automatically, that usually means the Base44 project config includes `site.serveCommand`, for example `"serveCommand": "npm run dev"` in `base44/config.jsonc`.
-- Use `npm run dev` only for frontend-only work against the hosted Base44 backend.
-- Prefer the existing Base44 CLI workflow over adding new npm scripts for Base44-specific tasks.
-- Reuse the existing SDK client and Vite plugin patterns before adding new Base44 integration paths.
-- Run the relevant checks from `package.json` before finishing code changes.
+See docs/DEPLOYMENT.md for production setup. Do not seed synthetic demo data into a production environment or run destructive database refreshes against real records.

@@ -4,7 +4,7 @@ import SiteHeader from "@/components/site/SiteHeader";
 import SiteFooter from "@/components/site/SiteFooter";
 import ComingSoon from "@/components/site/ComingSoon";
 import { loadSettings } from "@/lib/pos";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 
 export default function SiteLayout() {
   const [settings, setSettings] = useState(null);
@@ -12,9 +12,9 @@ export default function SiteLayout() {
 
   useEffect(() => {
     loadSettings().then(setSettings);
-    base44.auth.isAuthenticated().then((authed) => {
+    api.auth.isAuthenticated().then((authed) => {
       if (!authed) return setIsAdmin(false);
-      base44.auth.me().then((u) => setIsAdmin(u?.role === "admin")).catch(() => setIsAdmin(false));
+      api.auth.me().then((u) => setIsAdmin(u?.role === "admin")).catch(() => setIsAdmin(false));
     });
   }, []);
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Minus, Plus, ArrowLeft, ShoppingCart } from "lucide-react";
 import { peso, LOGO_URL } from "@/lib/brand";
 import { addToCart } from "@/lib/cart";
@@ -19,7 +19,7 @@ export default function ProductDetail() {
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    base44.entities.Product.get(id).then((p) => {
+    api.entities.Product.get(id).then((p) => {
       setProduct(p);
       setVariant((p.variants || []).find((v) => v.is_available !== false) || null);
     });

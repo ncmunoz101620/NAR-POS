@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
-import { audit } from "@/lib/pos";
+
 import SettingField from "@/components/admin/SettingField";
 import PrinterPanel from "@/components/admin/PrinterPanel";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,7 @@ export default function AdminSettings() {
     if (!file) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await api.upload(file);
       set("banner_image_url", file_url);
       toast({ title: "Banner image uploaded" });
     } catch {
@@ -42,7 +42,7 @@ export default function AdminSettings() {
     if (!file) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await api.upload(file);
       set("coming_soon_background_url", file_url);
       toast({ title: "Background uploaded" });
     } catch {
@@ -52,7 +52,7 @@ export default function AdminSettings() {
   };
 
   useEffect(() => {
-    base44.entities.Setting.list().then((list) => setForm(list[0] || { restaurant_name: "Nanay Asa Restaurant", currency_symbol: "₱" }));
+    api.entities.Setting.list().then((list) => setForm(list[0] || { restaurant_name: "Nanay Asa Restaurant", currency_symbol: "₱" }));
   }, []);
 
   if (!form) return <div className="h-40 rounded-2xl bg-white border border-[#F0DFD0] animate-pulse" />;
@@ -64,12 +64,12 @@ export default function AdminSettings() {
     const payload = { ...form };
     delete payload.id;
     ["tax_rate", "min_order", "delivery_fee", "prep_time_minutes", "low_stock_threshold", "receipt_copies"].forEach((k) => { payload[k] = Number(payload[k]) || 0; });
-    if (form.id) await base44.entities.Setting.update(form.id, payload);
+    if (form.id) await api.entities.Setting.update(form.id, payload);
     else {
-      const created = await base44.entities.Setting.create(payload);
+      const created = await api.entities.Setting.create(payload);
       setForm(created);
     }
-    await audit("Update settings", "settings", {});
+
     setSaving(false);
     toast({ title: "Settings saved" });
   };

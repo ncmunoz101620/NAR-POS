@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useOutletContext, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { useCart, clearCart } from "@/lib/cart";
 import { peso } from "@/lib/brand";
-import { nextOrderNumber } from "@/lib/pos";
+
 import { PH_LOCATIONS } from "@/lib/ph-locations";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,9 +22,10 @@ export default function Checkout() {
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [requestKey] = useState(()=>crypto.randomUUID());
 
   useEffect(() => {
-    base44.entities.PaymentMethod.filter({ is_active: true }, "sort_order").then((m) => {
+    api.entities.PaymentMethod.filter({ is_active: true }, "sort_order").then((m) => {
       setMethods(m);
       setForm((f) => ({ ...f, payment_method: f.payment_method || m[0]?.name || "" }));
     });
@@ -60,12 +61,12 @@ export default function Checkout() {
     if (Object.keys(e).length) return;
 
     setSaving(true);
-    const order_number = await nextOrderNumber();
+    try {
     const now = new Date().toISOString();
     const tax = Math.round(total * ((settings?.tax_rate || 0) / 100) * 100) / 100;
-    const order = await base44.entities.Order.create({
+    const order = await api.entities.Order.create({
       ...form,
-      order_number,
+      request_key: requestKey,
       status: "Pending",
       payment_status: "Unpaid",
       subtotal: total,
@@ -79,6 +80,9 @@ export default function Checkout() {
     });
     clearCart();
     navigate(`/order/${order.order_number}`);
+    } catch (error) {
+      setErrors({cart:error.message});
+    } finally { setSaving(false); }
   };
 
   const cities = form.province ? Object.keys(PH_LOCATIONS[form.province] || {}) : [];

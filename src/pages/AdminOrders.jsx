@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import React, { useEffect, useState } from "react";
+import { api, request } from "@/api/client";
 import { Search, Printer, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useOutletContext } from "react-router-dom";
 import PageHeader from "@/components/admin/PageHeader";
@@ -12,8 +12,8 @@ import OrderDateFilter from "@/components/admin/OrderDateFilter";
 import OrderSummaryCards from "@/components/admin/OrderSummaryCards";
 import BranchFilter from "@/components/admin/BranchFilter";
 import { peso, ORDER_STATUSES } from "@/lib/brand";
-import { loadSettings, audit, updateOrderStatus } from "@/lib/pos";
-import { formatManila, formatManilaDate, toManilaDate } from "@/lib/datetime";
+import { loadSettings, updateOrderStatus } from "@/lib/pos";
+import { formatManilaDate, toManilaDate } from "@/lib/datetime";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,29 +48,21 @@ export default function AdminOrders() {
   const [dateTo, setDateTo] = useState(todayStr);
   const [branch, setBranch] = useState("all");
 
-  const refresh = () => base44.entities.Order.list("-created_date", 500).then((o) => { setOrders(o); setLoading(false); });
+  const [listing,setListing]=useState({total:0,last_page:1,summary:{totalOrders:0,totalAmount:0,byMethod:{}}});
+  const [exportOrders,setExportOrders]=useState([]);
+  const params=()=>new URLSearchParams({from:dateFrom,to:dateTo,date_type:dateType==='created'?'created':'preferred',branch:userBranch || branch,status,q,page:String(page+1)});
+  const refresh=()=>request('/orders?'+params()).then(result=>{setOrders(result.data);setListing(result);setLoading(false);}).catch(e=>{setLoading(false);toast({title:e.message,variant:'destructive'});});
+  const openExport=async()=>{try{const p=params();p.set('export','1');setExportOrders(await request('/orders?'+p));setExportOpen(true);}catch(e){toast({title:e.message,variant:'destructive'});}};
+  useEffect(()=>{setPage(0);setSelected(new Set());},[q,status,branch,userBranch,dateType,dateFrom,dateTo]);
 
-  useEffect(() => { refresh(); loadSettings().then(setSettings); }, []);
+  useEffect(()=>{loadSettings().then(setSettings);},[]);
+  useEffect(()=>{refresh();},[q,status,branch,userBranch,dateType,dateFrom,dateTo,page]);
 
   // Realtime: keep the list in sync even when the user is idle.
   useEffect(() => {
-    const unsubscribe = base44.entities.Order.subscribe((event) => {
-      setOrders((prev) => {
-        if (event.type === "create") {
-          if (prev.some((o) => o.id === event.data.id)) return prev;
-          return [event.data, ...prev];
-        }
-        if (event.type === "update") {
-          return prev.map((o) => (o.id === event.data.id ? event.data : o));
-        }
-        if (event.type === "delete") {
-          return prev.filter((o) => o.id !== event.data.id);
-        }
-        return prev;
-      });
-    });
-    return unsubscribe;
-  }, []);
+    const timer=setInterval(refresh,15000);
+    return ()=>clearInterval(timer);
+  }, [q,status,branch,userBranch,dateType,dateFrom,dateTo,page]);
 
   const applyInterval = (v) => {
     setIntervalType(v);
@@ -100,49 +92,15 @@ export default function AdminOrders() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return orders.filter((o) => {
-      const matchStatus = status === "all" || o.status === status;
-      if (!matchStatus) return false;
-      const effBranch = userBranch || branch;
-      if (effBranch !== "all" && o.branch !== effBranch) return false;
-      const d = dateType === "created"
-        ? (o.created_date ? toManilaDate(o.created_date).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) : "")
-        : o.preferred_date;
-      if ((dateFrom || dateTo) && !d) return false;
-      if (dateFrom && d < dateFrom) return false;
-      if (dateTo && d > dateTo) return false;
-      if (!s) return true;
-      return [o.order_number, o.customer_name, o.customer_phone, o.payment_reference, formatManilaDate(o.created_date)]
-        .some((f) => (f || "").toLowerCase().includes(s));
-    });
-  }, [orders, q, status, branch, userBranch, dateType, dateFrom, dateTo]);
-
-  const summary = useMemo(() => {
-    const activeOrders = filtered.filter((o) => o.status !== "Cancelled");
-    const cancelledOrders = filtered.filter((o) => o.status === "Cancelled");
-    const totalOrders = activeOrders.length;
-    const totalAmount = activeOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-    const cancelledCount = cancelledOrders.length;
-    const cancelledAmount = cancelledOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-    const byMethod = {};
-    activeOrders.forEach((o) => {
-      const m = o.payment_method || "Unknown";
-      byMethod[m] = (byMethod[m] || 0) + (Number(o.total) || 0);
-    });
-    return { totalOrders, totalAmount, byMethod, cancelledCount, cancelledAmount };
-  }, [filtered]);
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
-  const rows = filtered.slice(page * PAGE, page * PAGE + PAGE);
-
+  const summary=listing.summary;
+  const pages=listing.last_page;
+  const rows=orders;
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await base44.entities.Order.delete(deleteTarget.id);
-      await audit("Delete order", "orders", { record_id: deleteTarget.order_number });
+      await api.entities.Order.delete(deleteTarget.id);
+
       toast({ title: `Order ${deleteTarget.order_number} deleted` });
       setDeleteTarget(null);
       refresh();
@@ -189,7 +147,7 @@ export default function AdminOrders() {
     <ModuleGuard module="orders">
       {(session) => (
         <>
-          <PageHeader title="Orders" subtitle={`${filtered.length} order(s)`} />
+          <PageHeader title="Orders" subtitle={`${listing.total} order(s)`} />
 
           <div className="mb-4 space-y-4">
             <OrderSummaryCards summary={summary} currencySymbol={settings?.currency_symbol} />
@@ -217,8 +175,8 @@ export default function AdminOrders() {
               </Select>
               {!userBranch && <BranchFilter value={branch} onChange={(v) => { setBranch(v); setPage(0); }} />}
               <button
-                onClick={() => setExportOpen(true)}
-                disabled={!filtered.length}
+                onClick={openExport}
+                disabled={!listing.total}
                 className="inline-flex items-center gap-2 rounded-full bg-[#581E12] text-white px-4 py-2 text-sm font-bold hover:bg-[#6b2a1c] disabled:opacity-50"
               >
                 <Download className="w-4 h-4" /> Export to Excel
@@ -346,7 +304,7 @@ export default function AdminOrders() {
             />
           )}
 
-          <OrderExportDialog open={exportOpen} onClose={() => setExportOpen(false)} orders={filtered} />
+          <OrderExportDialog open={exportOpen} onClose={() => setExportOpen(false)} orders={exportOrders} />
 
           <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
             <AlertDialogContent>

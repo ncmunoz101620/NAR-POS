@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { request } from "@/api/client";
 import { ArrowLeft, Download } from "lucide-react";
 import { manilaDateString } from "@/lib/datetime";
 import { peso } from "@/lib/brand";
@@ -44,60 +44,13 @@ export default function IngredientInventorySummary({ ingredients, onBack }) {
 
   const load = () => {
     setLoading(true);
-    base44.entities.InventoryTransaction.list("-created_date", 1000)
+    request('/reports/inventorySummary?'+new URLSearchParams({from,to}))
       .then((r) => setTxns(r))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [from,to]);
 
-  const inRange = (t) => {
-    const md = manilaDateString(t.created_date);
-    if (!md) return false;
-    if (from && md < from) return false;
-    if (to && md > to) return false;
-    return true;
-  };
-
-  const summary = useMemo(() => {
-    const map = new Map();
-    ingredients.forEach((ing) => {
-      map.set(ing.id, {
-        id: ing.id,
-        name: ing.name,
-        unit: ing.unit,
-        cost_per_unit: ing.cost_per_unit || 0,
-        current_stock: ing.current_stock || 0,
-        totalIn: 0,
-        totalOut: 0,
-      });
-    });
-    txns.filter(inRange).forEach((t) => {
-      let row = map.get(t.ingredient_id);
-      if (!row) {
-        row = {
-          id: t.ingredient_id,
-          name: t.ingredient_name || "(unknown)",
-          unit: t.unit || "",
-          cost_per_unit: 0,
-          current_stock: 0,
-          totalIn: 0,
-          totalOut: 0,
-        };
-        map.set(t.ingredient_id, row);
-      }
-      const qty = Number(t.quantity) || 0;
-      if (IN_TYPES.includes(t.type)) {
-        row.totalIn += Math.abs(qty);
-      } else if (OUT_TYPES.includes(t.type)) {
-        row.totalOut += Math.abs(qty);
-      } else {
-        // Adjustment / Correction — signed
-        if (qty >= 0) row.totalIn += qty;
-        else row.totalOut += Math.abs(qty);
-      }
-    });
-    return Array.from(map.values());
-  }, [txns, ingredients, from, to]);
+  const summary=txns;
 
   const filtered = useMemo(() => {
     const s = q.toLowerCase();

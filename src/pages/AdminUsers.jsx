@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
-import { audit } from "@/lib/pos";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -24,7 +24,7 @@ export default function AdminUsers() {
   const [removing, setRemoving] = useState(false);
 
   const refresh = () =>
-    Promise.all([base44.entities.AppUser.list("name"), base44.entities.Role.list("name")])
+    Promise.all([api.entities.AppUser.list("name"), api.entities.Role.list("name")])
       .then(([u, r]) => { setRows(u); setRoles(r); });
 
   useEffect(() => { refresh(); }, []);
@@ -33,10 +33,6 @@ export default function AdminUsers() {
     const s = q.toLowerCase();
     return rows.filter((r) => [r.name, r.email, r.role_name].some((f) => (f || "").toLowerCase().includes(s)));
   }, [rows, q]);
-
-  // Only the ADMIN app role maps to Base44 'admin'; all other staff roles map
-  // to Base44 'user' (they still reach the back office via their app role).
-  const baseRoleFor = (roleName) => (roleName || "").toUpperCase() === "ADMIN" ? "admin" : "user";
 
   const save = async () => {
     if (!editing.name.trim() || !editing.email.trim()) return toast({ title: "Name and email are required", variant: "destructive" });
@@ -47,34 +43,20 @@ export default function AdminUsers() {
     delete payload.id;
     try {
       if (editing.id) {
-        await base44.entities.AppUser.update(editing.id, payload);
+        await api.entities.AppUser.update(editing.id, payload);
       } else {
-        await base44.entities.AppUser.create(payload);
+        await api.entities.AppUser.create(payload);
       }
-      // Keep the Base44 login account in sync with the app role: invite new
-      // users with the mapped role, or update an existing account's role.
-      const baseRole = baseRoleFor(editing.role_name);
-      try {
-        const allUsers = await base44.entities.User.list();
-        const existing = allUsers.find((u) => (u.email || "").toLowerCase() === editing.email.toLowerCase());
-        if (existing) {
-          if (existing.role !== baseRole) await base44.entities.User.update(existing.id, { role: baseRole });
-        } else {
-          await base44.users.inviteUser(editing.email, baseRole);
-        }
-      } catch (syncErr) {
-        toast({ title: "Profile saved, but login account sync failed", description: syncErr.message, variant: "destructive" });
-      }
-      await audit(editing.id ? "User role change" : "User creation", "users", { record_id: editing.email, new_value: editing.role_name });
       setEditing(null); refresh();
-      toast({ title: editing.id ? "User saved" : "User saved — invite sent", description: editing.id ? undefined : `A login invite was sent to ${editing.email} as ${baseRole === "admin" ? "Admin" : "User"}. Have them check their inbox (and spam folder).` });
+      toast({ title: editing.id ? "User saved" : "User saved", description: "Use Reset password to send an account setup link." });
     } finally {
       setSaving(false);
     }
   };
 
   const resetPassword = async (user) => {
-    await audit("Reset password", "users", { record_id: user.email });
+    await api.auth.resetPasswordRequest(user.email);
+
     toast({ title: "Password reset requested", description: `A reset link will be sent to ${user.email}.` });
   };
 
@@ -82,8 +64,8 @@ export default function AdminUsers() {
     if (!deleting) return;
     setRemoving(true);
     try {
-      await base44.entities.AppUser.delete(deleting.id);
-      await audit("User deletion", "users", { record_id: deleting.email, previous_value: deleting.name });
+      await api.entities.AppUser.delete(deleting.id);
+
       setDeleting(null);
       refresh();
       toast({ title: "User deleted" });

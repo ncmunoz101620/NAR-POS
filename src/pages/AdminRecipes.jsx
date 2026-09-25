@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Pencil, X, Plus } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import { peso } from "@/lib/brand";
-import { audit } from "@/lib/pos";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -20,9 +20,9 @@ export default function AdminRecipes() {
 
   const refresh = () =>
     Promise.all([
-      base44.entities.Product.list("sort_order"),
-      base44.entities.Ingredient.list("name"),
-      base44.entities.Recipe.list(),
+      api.entities.Product.list("sort_order"),
+      api.entities.Ingredient.list("name"),
+      api.entities.Recipe.list(),
     ]).then(([p, i, r]) => { setProducts(p.filter((x) => !x.deleted_at)); setIngredients(i); setRecipes(r); });
 
   useEffect(() => { refresh(); }, []);
@@ -59,9 +59,9 @@ export default function AdminRecipes() {
       return { ingredient_id: i.ingredient_id, ingredient_name: ing?.name, quantity: Number(i.quantity), unit: ing?.unit };
     });
     const payload = { product_id: editing.product_id, product_name: editing.product_name, variant_name: editing.variant_name, items };
-    if (editing.id) await base44.entities.Recipe.update(editing.id, payload);
-    else await base44.entities.Recipe.create(payload);
-    await audit("Recipe change", "recipes", { record_id: `${editing.product_name} – ${editing.variant_name}` });
+    if (editing.id) await api.entities.Recipe.update(editing.id, payload);
+    else await api.entities.Recipe.create(payload);
+
     setEditing(null); refresh();
     toast({ title: "Recipe saved" });
   };

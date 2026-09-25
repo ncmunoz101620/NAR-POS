@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { useAuth } from "@/lib/AuthContext";
 
 // Single source of truth for the post-login destination:
@@ -20,7 +20,7 @@ export default function PostLoginRedirect() {
         return;
       }
       try {
-        const appUsers = await base44.entities.AppUser.list("name");
+        const appUsers = await api.entities.AppUser.list("name");
         const mine = appUsers.find((u) => (u.email || "").toLowerCase() === (user.email || "").toLowerCase());
         if (alive) setDest(mine ? "/admin" : "/");
       } catch {

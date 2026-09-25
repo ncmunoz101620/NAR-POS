@@ -1,9 +1,9 @@
 import React, { useRef, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Upload, FileSpreadsheet, Loader2, CheckCircle2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { audit } from "@/lib/pos";
+
 
 const HEADER_ALIASES = {
   name: ["name", "ingredient", "ingredient name", "item"],
@@ -128,30 +128,10 @@ export default function ImportIngredientsDialog({ open, onOpenChange, onImported
         const text = await f.text();
         parsed = rowsToIngredients(text);
       } else {
-        // xlsx path — upload + extract
-        const { file_url } = await base44.integrations.Core.UploadFile({ file: f });
-        const res = await base44.integrations.Core.ExtractDataFromUploadedFile({
-          file_url,
-          json_schema: {
-            type: "object",
-            properties: {
-              ingredients: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    name: { type: "string" }, sku: { type: "string" }, unit: { type: "string" },
-                    current_stock: { type: "number" }, min_stock: { type: "number" },
-                    reorder_level: { type: "number" }, cost_per_unit: { type: "number" },
-                    supplier: { type: "string" }, storage_location: { type: "string" },
-                    expiration_date: { type: "string" }, notes: { type: "string" },
-                  },
-                  required: ["name"],
-                },
-              },
-            },
-          },
-        });
+        const XLSX=await import('xlsx');
+        const workbook=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
+        const csv=XLSX.utils.sheet_to_csv(workbook.Sheets[workbook.SheetNames[0]]);
+        const res={output:{ingredients:rowsToIngredients(csv)}};
         const list = res.output?.ingredients || res.output || [];
         parsed = (Array.isArray(list) ? list : [list]).map((r) => ({
           name: (r.name || "").toString().trim(),
@@ -203,8 +183,8 @@ export default function ImportIngredientsDialog({ open, onOpenChange, onImported
     }
     try {
       if (toCreate.length) {
-        await base44.entities.Ingredient.bulkCreate(toCreate);
-        await audit("Import ingredients (Excel/CSV)", "ingredients", { record_id: `${toCreate.length} rows` });
+        await api.entities.Ingredient.bulkCreate(toCreate);
+
       }
       setCreatedCount(toCreate.length);
       setSkipped(skip);

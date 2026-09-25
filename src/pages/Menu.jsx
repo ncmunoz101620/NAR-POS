@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Search } from "lucide-react";
 import ProductCard from "@/components/site/ProductCard";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,8 @@ export default function Menu() {
 
   useEffect(() => {
     Promise.all([
-      base44.entities.Product.filter({ is_active: true, show_on_landing: true }, "sort_order"),
-      base44.entities.Category.filter({ is_active: true }, "sort_order"),
+      api.entities.Product.filter({ is_active: true, show_on_landing: true }, "sort_order"),
+      api.entities.Category.filter({ is_active: true }, "sort_order"),
     ]).then(([p, c]) => {
       const grabCatIds = c.filter((cat) => /grab\s*order/i.test(cat.name)).map((cat) => cat.id);
       setProducts(p.filter((prod) => !grabCatIds.includes(prod.category_id)));

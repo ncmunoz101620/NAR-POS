@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Plus, Search, Pencil, Trash2, X, Upload } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import { peso } from "@/lib/brand";
-import { audit } from "@/lib/pos";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,7 +33,7 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
 
   const refresh = () =>
-    Promise.all([base44.entities.Product.list("sort_order"), base44.entities.Category.list("sort_order")])
+    Promise.all([api.entities.Product.list("sort_order"), api.entities.Category.list("sort_order")])
       .then(([p, c]) => { setProducts(p.filter((x) => !x.deleted_at)); setCategories(c); setLoading(false); });
 
   useEffect(() => { refresh(); }, []);
@@ -54,24 +54,22 @@ export default function AdminProducts() {
 
     const payload = { ...form, variants: form.variants.map((v) => ({ ...v, price: Number(v.price) || 0 })) };
     delete payload.id;
-    if (form.id) await base44.entities.Product.update(form.id, payload);
-    else await base44.entities.Product.create(payload);
-    await audit(form.id ? "Edit product" : "Create product", "products", { record_id: form.name, new_value: form.name });
+    if (form.id) await api.entities.Product.update(form.id, payload);
+    else await api.entities.Product.create(payload);
+
     setEditing(null);
     refresh();
     toast({ title: form.id ? "Product updated" : "Product created" });
   };
 
   const softDelete = async () => {
-    const orders = await base44.entities.Order.list("-created_date", 500);
-    const used = orders.some((o) => (o.items || []).some((i) => i.product_id === confirm.id));
-    await base44.entities.Product.update(confirm.id, { deleted_at: new Date().toISOString(), is_active: false });
-    await audit("Delete product", "products", { record_id: confirm.name });
+    await api.entities.Product.update(confirm.id, { deleted_at: new Date().toISOString(), is_active: false });
+
     setConfirm(null);
     refresh();
     toast({
       title: "Product removed from the menu",
-      description: used ? "It appears in past orders, so its history was preserved." : undefined,
+      description: "Past order history is preserved.",
     });
   };
 
@@ -164,7 +162,7 @@ function ProductDialog({ form, setForm, categories, onSave }) {
     if (!file) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await api.upload(file);
       set("image_url", file_url);
     } catch {
       /* ignore */

@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { request } from "@/api/client";
 import { RefreshCw, Volume2, VolumeX, Bell } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import KitchenOrderCard from "@/components/admin/KitchenOrderCard";
 import { updateOrderStatus, loadSettings } from "@/lib/pos";
 import { toManilaDate } from "@/lib/datetime";
-import { printKitchenSlip, getSavedPrinter, describePrintError } from "@/lib/thermalPrinter";
+import { printKitchenSlip, describePrintError } from "@/lib/thermalPrinter";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -74,7 +74,7 @@ export default function AdminKitchenDisplay() {
   };
 
   const refresh = () =>
-    base44.entities.Order.list("-created_date", 200).then((o) => {
+    request('/kitchen').then((o) => {
       setOrders(o);
       if (firstLoad.current) {
         knownIds.current = new Set(o.map((x) => x.id));
@@ -100,12 +100,12 @@ export default function AdminKitchenDisplay() {
 
   useEffect(() => {
     refresh();
-    const unsub = base44.entities.Order.subscribe(() => refresh());
+
     const t = setInterval(() => setNow(Date.now()), 30000);
     // Polling fallback so new orders appear even if the realtime event is missed.
     const p = setInterval(refresh, 15000);
     return () => {
-      unsub();
+
       clearInterval(t);
       clearInterval(p);
     };

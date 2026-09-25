@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
-import { audit } from "@/lib/pos";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,22 +23,22 @@ export default function AdminCategories() {
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
 
-  const refresh = () => base44.entities.Category.list("sort_order").then((c) => setRows(c.filter((x) => !x.deleted_at)));
+  const refresh = () => api.entities.Category.list("sort_order").then((c) => setRows(c.filter((x) => !x.deleted_at)));
   useEffect(() => { refresh(); }, []);
 
   const save = async () => {
     if (!editing.name.trim()) return toast({ title: "Category name is required", variant: "destructive" });
     const payload = { ...editing };
     delete payload.id;
-    if (editing.id) await base44.entities.Category.update(editing.id, payload);
-    else await base44.entities.Category.create(payload);
-    await audit(editing.id ? "Edit category" : "Create category", "categories", { record_id: editing.name });
+    if (editing.id) await api.entities.Category.update(editing.id, payload);
+    else await api.entities.Category.create(payload);
+
     setEditing(null); refresh();
     toast({ title: "Category saved" });
   };
 
   const remove = async () => {
-    const products = await base44.entities.Product.filter({ category_id: confirm.id });
+    const products = await api.entities.Product.filter({ category_id: confirm.id });
     if (products.length) {
       setConfirm(null);
       return toast({
@@ -47,8 +47,8 @@ export default function AdminCategories() {
         variant: "destructive",
       });
     }
-    await base44.entities.Category.update(confirm.id, { deleted_at: new Date().toISOString(), is_active: false });
-    await audit("Delete category", "categories", { record_id: confirm.name });
+    await api.entities.Category.update(confirm.id, { deleted_at: new Date().toISOString(), is_active: false });
+
     setConfirm(null); refresh();
     toast({ title: "Category deleted" });
   };

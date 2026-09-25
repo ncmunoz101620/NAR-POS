@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { api } from "@/api/client";
 import { ArrowRight, Flame, Sparkles, Clock, MapPin, Phone } from "lucide-react";
 import ProductCard from "@/components/site/ProductCard";
 import { LOGO_URL } from "@/lib/brand";
 
-const HERO = "https://media.base44.com/images/public/6a86963105c959fd9a7fd6fd/42f09785c_generated_image.png";
+const HERO = "/images/hero.png";
 
 export default function Home() {
   const { settings } = useOutletContext() || {};
@@ -14,8 +14,8 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([
-      base44.entities.Product.filter({ is_active: true }, "sort_order"),
-      base44.entities.Category.filter({ is_active: true }, "sort_order"),
+      api.entities.Product.filter({ is_active: true }, "sort_order"),
+      api.entities.Category.filter({ is_active: true }, "sort_order"),
     ]).then(([p, c]) => {
       setProducts(p);
       setCategories(c);
