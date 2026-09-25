@@ -95,6 +95,83 @@ class RestaurantTest extends TestCase
         $this->assertNotNull(User::where('email', 'new@example.test')->first()->email_verified_at);
     }
 
+    public function test_admin_can_create_staff_user_with_password(): void
+    {
+        $this->actingAs($this->staff());
+        $payload = [
+            'name' => 'New Staff',
+            'email' => 'staff-password@example.test',
+            'password' => 'Staff-password-123',
+            'role_name' => 'CSR',
+            'branch' => 'NAR Commi',
+            'is_active' => true,
+        ];
+
+        $this->postJson('/api/entities/AppUser', $payload)->assertOk()->assertJsonPath('email', 'staff-password@example.test');
+        $user = User::where('email', 'staff-password@example.test')->firstOrFail();
+        $this->assertTrue(Hash::check('Staff-password-123', $user->password));
+
+        $this->postJson('/api/auth/logout')->assertOk();
+        $this->postJson('/api/auth/login', ['email' => 'staff-password@example.test', 'password' => 'Staff-password-123'])->assertOk();
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_deleted_staff_email_can_be_reused_for_new_user(): void
+    {
+        $this->actingAs($this->staff());
+        $payload = [
+            'name' => 'Reusable Staff',
+            'email' => 'reusable@example.test',
+            'password' => 'Reusable-password-123',
+            'role_name' => 'CSR',
+            'branch' => 'NAR Commi',
+            'is_active' => true,
+        ];
+
+        $profileId = $this->postJson('/api/entities/AppUser', $payload)->assertOk()->json('id');
+        $this->deleteJson('/api/entities/AppUser/'.$profileId)->assertNoContent();
+        $this->assertDatabaseMissing('app_users', ['email' => 'reusable@example.test']);
+        $this->assertDatabaseHas('users', ['email' => 'reusable@example.test', 'is_active' => false]);
+
+        $this->postJson('/api/entities/AppUser', array_replace($payload, ['name' => 'Reusable Staff Again']))->assertOk();
+        $this->assertDatabaseHas('app_users', ['email' => 'reusable@example.test', 'name' => 'Reusable Staff Again']);
+        $this->assertDatabaseHas('users', ['email' => 'reusable@example.test', 'is_active' => true]);
+    }
+
+    public function test_active_login_email_cannot_be_claimed_as_staff(): void
+    {
+        $this->actingAs($this->staff());
+        User::factory()->create(['email' => 'active-account@example.test', 'is_active' => true]);
+
+        $this->postJson('/api/entities/AppUser', [
+            'name' => 'Taken Email',
+            'email' => 'active-account@example.test',
+            'password' => 'Taken-password-123',
+            'role_name' => 'CSR',
+            'branch' => 'NAR Commi',
+            'is_active' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('email');
+    }
+
+    public function test_role_menu_permissions_save_is_idempotent(): void
+    {
+        $this->actingAs($this->staff());
+        $role = Role::where('name', 'CSR')->firstOrFail();
+        $permissions = [
+            ['module' => 'dashboard', 'actions' => ['view']],
+            ['module' => 'orders', 'actions' => ['view', 'create', 'edit', 'print']],
+            ['module' => 'manual_order', 'actions' => ['view', 'create']],
+        ];
+
+        $this->patchJson('/api/entities/Role/'.$role->id, ['permissions' => $permissions])->assertOk();
+        $firstCount = $role->fresh()->grants()->count();
+
+        $this->patchJson('/api/entities/Role/'.$role->id, ['permissions' => $permissions])->assertOk();
+
+        $this->assertSame($firstCount, $role->fresh()->grants()->count());
+        $this->assertDatabaseHas('role_permissions', ['role_id' => $role->id, 'module' => 'orders', 'action' => 'create']);
+    }
+
     public function test_product_crud_permissions_and_normalized_variants(): void
     {
         $this->actingAs($this->staff());

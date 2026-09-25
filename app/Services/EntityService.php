@@ -65,15 +65,22 @@ class EntityService
             if ($entity === 'AppUser') {
                 $role = Role::where('name', $data['role_name'])->where('is_active', true)->firstOrFail();
                 $user = User::firstOrNew(['email' => strtolower($data['email'])]);
+                if (! $id && $user->exists && ($user->is_active || $user->profile()->exists())) {
+                    throw ValidationException::withMessages(['email' => 'The email has already been taken.']);
+                }
                 if (! $user->exists) {
-                    $user->password = Hash::make(Str::random(64));
+                    $user->password = $data['password'] ?? Hash::make(Str::random(64));
+                } elseif (! empty($data['password'])) {
+                    $user->password = $data['password'];
                 }
                 $user->name = $data['name'];
                 $user->is_active = $data['is_active'] ?? true;
                 $user->role = $role->name === 'ADMIN' ? 'admin' : 'user';
+                $user->email_verified_at ??= now();
                 $user->save();
                 $row->user_id = $user->id;
                 $row->role_id = $role->id;
+                unset($data['password']);
             }
             $stock = $data['current_stock'] ?? null;
             if (in_array($entity, ['Ingredient', 'RawMaterial'])) {
@@ -83,7 +90,17 @@ class EntityService
             $row->save();
             $row->refresh();
             if ($entity === 'Role' && isset($data['permissions'])) {
-                $row->grants()->delete();
+                $wanted = collect($data['permissions'])
+                    ->flatMap(fn ($grant) => collect(array_unique($grant['actions'] ?? []))
+                        ->map(fn ($act) => ['module' => $grant['module'], 'action' => $act]))
+                    ->unique(fn ($grant) => $grant['module'].'|'.$grant['action'])
+                    ->values();
+                $wantedKeys = $wanted->map(fn ($grant) => $grant['module'].'|'.$grant['action'])->all();
+                $row->grants()->get()->each(function ($grant) use ($wantedKeys) {
+                    if (! in_array($grant->module.'|'.$grant->action, $wantedKeys, true)) {
+                        $grant->delete();
+                    }
+                });
                 foreach ($data['permissions'] as $grant) {
                     foreach (array_unique($grant['actions'] ?? []) as $act) {
                         $row->grants()->firstOrCreate(['module' => $grant['module'], 'action' => $act]);

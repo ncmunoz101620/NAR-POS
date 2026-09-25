@@ -45,16 +45,22 @@ export default function RoleMenuConfig() {
   };
 
   const save = async () => {
+    if (saving) return;
     setSaving(true);
-    const permissions = Object.entries(matrix)
-      .filter(([, set]) => set.size)
-      .map(([module, set]) => ({ module, actions: [...set] }));
-    await api.entities.Role.update(roleId, { permissions });
+    try {
+      const permissions = Object.entries(matrix)
+        .filter(([, set]) => set.size)
+        .map(([module, set]) => ({ module, actions: [...set] }));
+      await api.entities.Role.update(roleId, { permissions });
 
-    const fresh = await api.entities.Role.list("name");
-    setRoles(fresh);
-    setSaving(false);
-    toast({ title: "Permissions updated" });
+      const fresh = await api.entities.Role.list("name");
+      setRoles(fresh);
+      toast({ title: "Permissions updated" });
+    } catch (e) {
+      toast({ title: "Unable to save permissions", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const role = roles.find((r) => r.id === roleId);

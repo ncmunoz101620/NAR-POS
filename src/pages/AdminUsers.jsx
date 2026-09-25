@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 
-const EMPTY = { name: "", email: "", mobile: "", role_name: "CSR", branch: "NAR Commi", is_active: true };
+const EMPTY = { name: "", email: "", mobile: "", role_name: "CSR", branch: "NAR Commi", is_active: true, password: "" };
 
 export default function AdminUsers() {
   const { toast } = useToast();
@@ -36,11 +36,14 @@ export default function AdminUsers() {
 
   const save = async () => {
     if (!editing.name.trim() || !editing.email.trim()) return toast({ title: "Name and email are required", variant: "destructive" });
+    if (!editing.id && (editing.password || "").length < 12) return toast({ title: "Password must be at least 12 characters", variant: "destructive" });
+    if (editing.id && editing.password && editing.password.length < 12) return toast({ title: "Password must be at least 12 characters", variant: "destructive" });
     const dupe = rows.find((r) => r.email.toLowerCase() === editing.email.toLowerCase() && r.id !== editing.id);
     if (dupe) return toast({ title: "That email is already used", variant: "destructive" });
     setSaving(true);
     const payload = { ...editing };
     delete payload.id;
+    if (editing.id && !payload.password) delete payload.password;
     try {
       if (editing.id) {
         await api.entities.AppUser.update(editing.id, payload);
@@ -48,7 +51,9 @@ export default function AdminUsers() {
         await api.entities.AppUser.create(payload);
       }
       setEditing(null); refresh();
-      toast({ title: editing.id ? "User saved" : "User saved", description: "Use Reset password to send an account setup link." });
+      toast({ title: editing.id ? "User saved" : "User created", description: editing.id ? "The account details were updated." : "The user can now sign in with the password you set." });
+    } catch (e) {
+      toast({ title: "Failed to save user", description: e.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -136,6 +141,17 @@ export default function AdminUsers() {
                 <div className="space-y-4">
                   <div><Label>Name *</Label><Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="mt-1.5" /></div>
                   <div><Label>Email *</Label><Input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} className="mt-1.5" /></div>
+                  <div>
+                    <Label>{editing.id ? "New password" : "Password *"}</Label>
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      value={editing.password || ""}
+                      onChange={(e) => setEditing({ ...editing, password: e.target.value })}
+                      placeholder={editing.id ? "Leave blank to keep current password" : "At least 12 characters"}
+                      className="mt-1.5"
+                    />
+                  </div>
                   <div><Label>Mobile</Label><Input value={editing.mobile || ""} onChange={(e) => setEditing({ ...editing, mobile: e.target.value })} className="mt-1.5" /></div>
                   <div>
                     <Label>Role</Label>

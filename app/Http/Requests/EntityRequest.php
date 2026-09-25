@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\AppUser;
 use App\Services\Access;
 use App\Services\EntityService;
 use Illuminate\Foundation\Http\FormRequest;
@@ -71,6 +72,13 @@ class EntityRequest extends FormRequest
         if ($entity === 'AppUser') {
             $rules['email'] = ['required', 'email', 'max:255', Rule::unique('app_users', 'email')->ignore($this->route('id'))];
             $rules['role_name'] = ['required', 'exists:roles,name'];
+            if ($this->isMethod('POST')) {
+                $rules['password'] = ['required', 'string', 'min:12', 'max:128'];
+            } else {
+                $profile = AppUser::find($this->route('id'));
+                $rules['email'][] = Rule::unique('users', 'email')->ignore($profile?->user_id);
+                $rules['password'] = ['sometimes', 'nullable', 'string', 'min:12', 'max:128'];
+            }
         }
         if ($entity === 'Setting') {
             $rules['tax_rate'] = ['sometimes', 'numeric', 'min:0', 'max:100'];
