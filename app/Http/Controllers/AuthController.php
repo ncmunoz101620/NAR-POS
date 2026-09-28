@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\Access;
 use App\Services\AuditService;
+use Composer\CaBundle\CaBundle;
+use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -153,12 +155,12 @@ class AuthController extends Controller
         }
         $request->session()->put('google_return_to', $returnTo);
 
-        return Socialite::driver('google')->redirect();
+        return $this->googleProvider()->redirect();
     }
 
     public function googleCallback(Request $request)
     {
-        $google = Socialite::driver('google')->user();
+        $google = $this->googleProvider()->user();
         abort_unless($google->user['verified_email'] ?? $google->user['email_verified'] ?? false, 403);
         $user = User::firstOrNew(['email' => strtolower($google->getEmail())]);
         abort_if($user->exists && ! $user->is_active, 403);
@@ -173,5 +175,12 @@ class AuthController extends Controller
         $request->session()->regenerate();
 
         return redirect($request->session()->pull('google_return_to', '/login-redirect'));
+    }
+
+    private function googleProvider()
+    {
+        return Socialite::driver('google')->setHttpClient(new GuzzleClient([
+            'verify' => CaBundle::getSystemCaRootBundlePath(),
+        ]));
     }
 }
