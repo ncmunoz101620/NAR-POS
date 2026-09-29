@@ -28,4 +28,4 @@ Stock is checked when an order is created and deducted at completion, matching t
 
 Catalog and legacy inventory detail lists retain bounded responses (up to 5,000 rows); summary reports and order exports do not inherit the original 500-order limit. For larger catalogs/movement histories, paginate those remaining screens before rollout. Browser export/print permissions cannot prevent a reader from manually copying information already authorized for display.
 
-Infrastructure secrets belong in environment configuration. No unnecessary queues, schedulers or external payment services have been introduced; email uses the configured Laravel mailer synchronously.
+Infrastructure secrets belong in environment configuration. Email uses the configured Laravel mailer synchronously. The only scheduler entry sends the optional daily sales report at 8:00 AM Manila time; no queue worker or external payment service is required.

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { api } from "@/api/client";
+import { api, request } from "@/api/client";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 
@@ -24,6 +24,8 @@ export default function AdminSettings() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [reportEmail, setReportEmail] = useState("");
+  const [sendingReport, setSendingReport] = useState(false);
 
   const uploadBanner = async (file) => {
     if (!file) return;
@@ -32,8 +34,8 @@ export default function AdminSettings() {
       const { file_url } = await api.upload(file);
       set("banner_image_url", file_url);
       toast({ title: "Banner image uploaded" });
-    } catch {
-      toast({ title: "Upload failed", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "Upload failed", description: e.message, variant: "destructive" });
     }
     setUploading(false);
   };
@@ -45,8 +47,8 @@ export default function AdminSettings() {
       const { file_url } = await api.upload(file);
       set("coming_soon_background_url", file_url);
       toast({ title: "Background uploaded" });
-    } catch {
-      toast({ title: "Upload failed", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "Upload failed", description: e.message, variant: "destructive" });
     }
     setUploading(false);
   };
@@ -75,6 +77,31 @@ export default function AdminSettings() {
   };
 
   const Field = (props) => <SettingField {...props} form={form} set={set} />;
+  const reportRecipients = Array.isArray(form.daily_sales_report_recipients) ? form.daily_sales_report_recipients : [];
+  const addReportRecipients = () => {
+    const emails = reportEmail
+      .split(/[,;\s]+/)
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean);
+    const invalid = emails.find((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+    if (invalid) {
+      toast({ title: "Invalid email", description: `${invalid} is not a valid email address.`, variant: "destructive" });
+      return;
+    }
+    set("daily_sales_report_recipients", Array.from(new Set([...reportRecipients, ...emails])));
+    setReportEmail("");
+  };
+  const removeReportRecipient = (email) => set("daily_sales_report_recipients", reportRecipients.filter((item) => item !== email));
+  const sendTestReport = async () => {
+    setSendingReport(true);
+    try {
+      const result = await request("/reports/daily-sales/test", "POST", { recipients: reportRecipients });
+      toast({ title: "Test report sent", description: `Sent to ${result.sent} recipient(s).` });
+    } catch (e) {
+      toast({ title: "Failed to send report", description: e.message, variant: "destructive" });
+    }
+    setSendingReport(false);
+  };
 
   // CSR and RND COOK only get the device printer pairing panel (they lack full
   // settings access). ADMIN sees the complete settings page below.
@@ -104,6 +131,7 @@ export default function AdminSettings() {
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
           <TabsTrigger value="receipt">Receipt / Printer</TabsTrigger>
           <TabsTrigger value="coming-soon">Coming Soon</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="restaurant" className="mt-4">
@@ -239,6 +267,63 @@ export default function AdminSettings() {
                 </div>
               </div>
               <p className="text-xs text-[#7a4b3a]/70">Leave blank to use the default gradient background.</p>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="reports" className="mt-4">
+          <div className="bg-white rounded-2xl border border-[#F0DFD0] p-6 max-w-3xl space-y-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-bold text-[#581E12]">Daily Sales Report</p>
+                <p className="text-xs text-[#7a4b3a]/80 mt-0.5">Automatically emails yesterday&apos;s sales and performance summary every morning at 8:00 AM Manila time.</p>
+              </div>
+              <Switch checked={form.daily_sales_report_enabled === true} onCheckedChange={(v) => set("daily_sales_report_enabled", v)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Recipient emails</Label>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  type="email"
+                  value={reportEmail}
+                  onChange={(e) => setReportEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addReportRecipients();
+                    }
+                  }}
+                  placeholder="name@example.com"
+                  className="max-w-md bg-white border-[#F0DFD0]"
+                />
+                <button type="button" onClick={addReportRecipients} className="rounded-full bg-[#581E12] text-white px-5 py-2 text-sm font-bold hover:bg-[#6b2a1c]">
+                  + Add
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {reportRecipients.length ? reportRecipients.map((email) => (
+                  <span key={email} className="inline-flex items-center gap-2 rounded-full border border-[#F0DFD0] bg-[#FFF8F2] px-3 py-1.5 text-sm text-[#581E12]">
+                    {email}
+                    <button type="button" onClick={() => removeReportRecipient(email)} className="text-[#B66D46] hover:text-[#E83934]" aria-label={`Remove ${email}`}>×</button>
+                  </span>
+                )) : (
+                  <p className="text-xs text-[#7a4b3a]/70">Add one or more email addresses, then save settings.</p>
+                )}
+              </div>
+              <p className="text-xs text-[#7a4b3a]/70">Separate multiple addresses with commas, spaces, or semicolons.</p>
+            </div>
+
+            <div className="border-t border-[#F0DFD0] pt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={sendTestReport}
+                disabled={sendingReport || !reportRecipients.length}
+                className="rounded-full bg-[#EE8720] text-white px-5 py-2 text-sm font-bold hover:bg-[#d87216] disabled:opacity-50"
+              >
+                {sendingReport ? "Sending…" : "Send test report now"}
+              </button>
+              <p className="text-xs text-[#7a4b3a]/80">Scheduled daily at 8:00 AM Manila time. Save settings before relying on the schedule.</p>
             </div>
           </div>
         </TabsContent>

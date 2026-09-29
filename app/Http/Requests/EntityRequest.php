@@ -83,6 +83,8 @@ class EntityRequest extends FormRequest
         if ($entity === 'Setting') {
             $rules['tax_rate'] = ['sometimes', 'numeric', 'min:0', 'max:100'];
             $rules['deduct_on_status'] = ['sometimes', Rule::in(['Completed'])];
+            $rules['daily_sales_report_recipients'] = ['sometimes', 'array', 'max:50'];
+            $rules['daily_sales_report_recipients.*'] = ['required', 'email', 'max:255', 'distinct:ignore_case'];
         }
         if ($entity === 'Product') {
             $rules['category_id'] = ['nullable', 'exists:categories,id'];

@@ -20,7 +20,7 @@ class UploadController extends Controller
         AuditService::record('Upload', 'settings', basename($path));
         DB::table('uploaded_assets')->insert(['name' => basename($path), 'user_id' => auth()->id(), 'purpose' => $data['purpose'], 'created_at' => now(), 'updated_at' => now()]);
 
-        return ['file_url' => $public ? Storage::disk('public')->url($path) : url('/api/uploads/'.basename($path))];
+        return ['file_url' => $public ? '/storage/'.ltrim($path, '/') : url('/api/uploads/'.basename($path))];
     }
 
     public function show(string $name)

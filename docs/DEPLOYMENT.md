@@ -14,9 +14,10 @@ Point the web server document root at `public/`, never the repository root. Conf
 4. Create the named MySQL database and a least-privilege application user. Run `php artisan migrate --force`, then `php artisan db:seed --force`. Production seeds create roles, settings and payment methods only, not demo products or credentials.
 5. Run `php artisan app:create-admin administrator@example.com`. The password is entered at a hidden prompt, not in the command line, source code or environment file.
 6. Run `php artisan storage:link`, `npm run build`, `php artisan optimize`. Deploy the resulting public/build directory with its manifest.
-7. Run the staging regression suite, verify `/up`, test email verification/reset, Google login if enabled, staff role/branch isolation, a checkout, completion/cancellation, transfers, reports, file access and actual printers. Remove demo catalog/QA data from any development copy used as a starting point.
+7. Configure the server cron to run Laravel's scheduler every minute: `* * * * * cd /path/to/app && php artisan schedule:run >> /dev/null 2>&1`. The daily sales report uses this scheduler and sends at 8:00 AM Manila time.
+8. Run the staging regression suite, verify `/up`, test email verification/reset, Google login if enabled, staff role/branch isolation, a checkout, completion/cancellation, transfers, reports, file access and actual printers. Remove demo catalog/QA data from any development copy used as a starting point.
 
-There are no scheduled jobs or required workers in this implementation. If queued email is introduced later, configure a supervised queue worker. Local public uploads use Laravel's public disk; private evidence uses the local private disk. For object storage, adapt those configured disks with the Flysystem S3 adapter and private-object delivery; do not expose the private disk publicly.
+The only scheduled job is the daily sales report. It sends email synchronously through the configured Laravel mailer; no queue worker is required. If queued email is introduced later, configure a supervised queue worker. Local public uploads use Laravel's public disk; private evidence uses the local private disk. For object storage, adapt those configured disks with the Flysystem S3 adapter and private-object delivery; do not expose the private disk publicly.
 
 ## Google and email
 

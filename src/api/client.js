@@ -7,7 +7,8 @@ export async function request(path, method = 'GET', data) {
     headers: { Accept: 'application/json', ...(multipart ? {} : { 'Content-Type': 'application/json' }), ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}) },
     body: data === undefined ? undefined : multipart ? data : JSON.stringify(data),
   });
-  const result = response.status === 204 ? null : await response.json();
+  const contentType = response.headers.get('content-type') || '';
+  const result = response.status === 204 ? null : contentType.includes('application/json') ? await response.json() : { message: await response.text() || 'Request failed' };
   if (!response.ok) {
     throw Object.assign(new Error(Object.values(result?.errors || {}).flat()[0] || result?.message || 'Request failed'), {status:response.status, data:result});
   }

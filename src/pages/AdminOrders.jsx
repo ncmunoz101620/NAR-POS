@@ -129,17 +129,48 @@ export default function AdminOrders() {
       toast({ title: "Cancellation reason required", description: "Please enter a reason for cancelling these orders.", variant: "destructive" });
       return;
     }
-    setBulkBusy(true);
+
+    const nextStatus = bulkStatus;
+    const reason = nextStatus === "Cancelled" ? bulkReason.trim() : undefined;
     const targets = orders.filter((o) => selected.has(o.id));
-    let ok = 0;
-    for (const o of targets) {
-      try { await updateOrderStatus(o, bulkStatus, userName, undefined, bulkStatus === "Cancelled" ? bulkReason.trim() : undefined); ok++; } catch {}
+    const updatedIds = new Set();
+    const failures = [];
+
+    setBulkBusy(true);
+    try {
+      for (const o of targets) {
+        try {
+          await updateOrderStatus(o, nextStatus, userName, undefined, reason);
+          updatedIds.add(o.id);
+        } catch (e) {
+          failures.push({ order: o.order_number || "Order", message: e.message || "Update failed" });
+        }
+      }
+    } finally {
+      setBulkBusy(false);
     }
-    setBulkBusy(false);
-    setSelected(new Set());
-    setBulkStatus("");
-    setBulkReason("");
-    toast({ title: `${ok} order(s) updated to ${bulkStatus}` });
+
+    const ok = updatedIds.size;
+    if (ok) {
+      setSelected((current) => {
+        const remaining = new Set(current);
+        updatedIds.forEach((id) => remaining.delete(id));
+        return failures.length ? remaining : new Set();
+      });
+    }
+    if (!failures.length) {
+      setBulkStatus("");
+      setBulkReason("");
+      toast({ title: `${ok} order(s) updated to ${nextStatus}` });
+    } else {
+      const shown = failures.slice(0, 3).map((f) => `${f.order}: ${f.message}`);
+      const extra = failures.length > shown.length ? `\n+${failures.length - shown.length} more failed` : "";
+      toast({
+        title: ok ? `${ok} updated, ${failures.length} failed` : "No orders updated",
+        description: shown.join("\n") + extra,
+        variant: "destructive",
+      });
+    }
     refresh();
   };
 
