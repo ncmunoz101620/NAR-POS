@@ -32,7 +32,6 @@ dist-ssr
 
 /vendor
 /.laravel-foundation
-/public/build
 /public/storage
 /storage/*.key
 /database/*.sqlite

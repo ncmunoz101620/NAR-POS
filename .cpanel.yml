@@ -1,0 +1,8 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/khw2ft6zoaa3/public_html/nanayasa.ph
+    - /bin/mkdir -p "$DEPLOYPATH/storage/framework/cache" "$DEPLOYPATH/storage/framework/sessions" "$DEPLOYPATH/storage/framework/views" "$DEPLOYPATH/storage/logs" "$DEPLOYPATH/bootstrap/cache"
+    - /bin/chmod -R u+rwX "$DEPLOYPATH/storage" "$DEPLOYPATH/bootstrap/cache"
+    - cd "$DEPLOYPATH" && if command -v composer >/dev/null 2>&1; then composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction; elif [ -x /opt/cpanel/composer/bin/composer ]; then /opt/cpanel/composer/bin/composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction; else echo "Composer was not found. Run composer install manually in cPanel Terminal."; fi
+    - cd "$DEPLOYPATH" && if [ -f .env ] && command -v php >/dev/null 2>&1; then php artisan migrate --force && php artisan storage:link && php artisan optimize; else echo "Skipping Laravel artisan deploy steps because .env or php is unavailable."; fi
