@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Support\DataTransferTables;
+use App\Support\ImportSkus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -13,7 +14,7 @@ use RuntimeException;
 
 class ImportApplicationData extends Command
 {
-    protected $signature = 'app:data-import {path : JSON file created by app:data-export} {--force : Delete existing application data before importing} {--dry-run : Validate the file and show counts without writing}';
+    protected $signature = 'app:data-import {path : JSON file created by app:data-export} {--force : Delete existing application data before importing} {--dry-run : Validate the file and show counts without writing} {--resolve-sku-conflicts : Suffix later case-insensitive duplicate SKUs, preserving all records and IDs}';
 
     protected $description = 'Import application data exported by app:data-export into the current database.';
 
@@ -37,6 +38,23 @@ class ImportApplicationData extends Command
         $validation = $this->validatePayload($payload);
         if ($validation !== null) {
             $this->error($validation);
+
+            return self::FAILURE;
+        }
+
+        $hasConflicts = false;
+        foreach (['products', 'ingredients', 'raw_materials'] as $table) {
+            $result = ImportSkus::resolve($payload['tables'][$table]);
+            foreach ($result['changes'] as $change) {
+                $hasConflicts = true;
+                $this->warn($table.' SKU conflict ('.$change['id'].'): '.$change['from'].' -> '.$change['to']);
+            }
+            if ($this->option('resolve-sku-conflicts')) {
+                $payload['tables'][$table] = $result['rows'];
+            }
+        }
+        if ($hasConflicts && ! $this->option('resolve-sku-conflicts')) {
+            $this->error('No data changed. Review the proposed SKU changes, then use --resolve-sku-conflicts to accept them.');
 
             return self::FAILURE;
         }

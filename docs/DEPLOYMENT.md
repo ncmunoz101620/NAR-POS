@@ -45,14 +45,17 @@ On GoDaddy, back up the MySQL database first, then validate the file without wri
 
 ```bash
 cd /home/khw2ft6zoaa3/public_html/nanayasa.ph
-php artisan app:data-import storage/app/private/imports/nanayasa-production-data.json --dry-run
+php artisan app:data-import imports/nanayasa-production-data.json --dry-run
 ```
 
 When the counts look correct, replace the seeded production data with the exported application data:
 
 ```bash
-php artisan app:data-import storage/app/private/imports/nanayasa-production-data.json --force
+php artisan app:data-import imports/nanayasa-production-data.json --force
 php artisan optimize
 ```
 
 The import command intentionally requires `--force` before it deletes existing application data. It excludes transient framework tables such as sessions, cache, jobs, password reset tokens and email verification codes. Uploaded files are not embedded in the JSON; copy `storage/app/public`, `storage/app/private`, and refresh `public/storage` separately when migrated records reference uploaded images or private evidence.
+
+SKU conflicts: SQLite exports may contain SKUs that differ only by case or trailing spaces. The importer now stops before writing and lists proposed suffixes. Preview with --dry-run --resolve-sku-conflicts, then add --resolve-sku-conflicts to the actual import only after reviewing the changes. All rows and IDs are preserved. This check covers case and trailing-space collisions, not every possible MySQL collation equivalence; MySQL acceptance remains required.
+
