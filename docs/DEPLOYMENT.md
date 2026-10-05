@@ -28,3 +28,31 @@ Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI to the regist
 Roll back the application artifact and restore tested database/storage backups together if a schema/data rollback is needed. Do not run destructive migrate:fresh against real data. Migrations and tests were run against SQLite locally; MySQL/MariaDB acceptance and multi-process contention tests must run in the target environment. The supplied CI workflow includes MariaDB testing.
 
 Do not call this production-accepted until actual data reconciliation, target database testing, email/provider configuration and hardware printing checks are complete. See VALIDATION.md for the checks actually run.
+
+## Production data transfer
+
+After the GoDaddy database has been migrated, move the locally imported Base44 data with the application data export/import commands instead of editing production tables manually.
+
+On the local machine, create the export file:
+
+```bash
+php artisan app:data-export exports/nanayasa-production-data.json --pretty
+```
+
+Upload the generated file from `storage/app/private/exports/nanayasa-production-data.json` to the production server, for example into `storage/app/private/imports/`.
+
+On GoDaddy, back up the MySQL database first, then validate the file without writing:
+
+```bash
+cd /home/khw2ft6zoaa3/public_html/nanayasa.ph
+php artisan app:data-import storage/app/private/imports/nanayasa-production-data.json --dry-run
+```
+
+When the counts look correct, replace the seeded production data with the exported application data:
+
+```bash
+php artisan app:data-import storage/app/private/imports/nanayasa-production-data.json --force
+php artisan optimize
+```
+
+The import command intentionally requires `--force` before it deletes existing application data. It excludes transient framework tables such as sessions, cache, jobs, password reset tokens and email verification codes. Uploaded files are not embedded in the JSON; copy `storage/app/public`, `storage/app/private`, and refresh `public/storage` separately when migrated records reference uploaded images or private evidence.
