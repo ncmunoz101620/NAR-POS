@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Support\DataTransferTables;
 use App\Support\ImportSkus;
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -84,21 +85,40 @@ class ImportApplicationData extends Command
             }
         }
 
-        DB::transaction(function () use ($payload) {
+        try {
             $this->withoutForeignKeyChecks(function () use ($payload) {
-                foreach (array_reverse(DataTransferTables::TABLES) as $table) {
-                    DB::table($table)->delete();
-                }
+                DB::transaction(function () use ($payload) {
+                    foreach (array_reverse(DataTransferTables::TABLES) as $table) {
+                        DB::table($table)->delete();
+                    }
 
-                foreach (DataTransferTables::TABLES as $table) {
-                    foreach (array_chunk($payload['tables'][$table], 500) as $chunk) {
-                        if ($chunk !== []) {
-                            DB::table($table)->insert($chunk);
+                    foreach (DataTransferTables::TABLES as $table) {
+                        $rows = $payload['tables'][$table];
+                        $chunkSize = $rows === [] ? 500 : max(1, min(500, intdiv(30000, count($rows[0]))));
+                        foreach (array_chunk($rows, $chunkSize) as $chunk) {
+                            if ($chunk !== []) {
+                                DB::table($table)->insert($chunk);
+                            }
                         }
                     }
-                }
+                    // Replacing user IDs invalidates every old login and reset credential.
+                    foreach (['sessions', 'password_reset_tokens', 'email_codes'] as $table) {
+                        DB::table($table)->delete();
+                    }
+                    if (DB::getDriverName() === 'sqlite' && DB::select('PRAGMA foreign_key_check') !== []) {
+                        throw new RuntimeException('Imported data contains broken foreign keys. Import rolled back.');
+                    }
+                });
             });
-        });
+        } catch (QueryException $e) {
+            $this->error('Import rolled back: database constraint or data format error (SQLSTATE '.$e->getCode().'). No replacement was committed.');
+
+            return self::FAILURE;
+        } catch (RuntimeException $e) {
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
+        }
 
         $this->info('Import complete. Run php artisan optimize after confirming .env values on production.');
 
