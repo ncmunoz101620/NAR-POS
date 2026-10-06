@@ -62,6 +62,36 @@ class RestaurantTest extends TestCase
         $this->getJson('/api/entities/Order')->assertForbidden();
     }
 
+    public function test_dashboard_separates_gross_discounts_and_net_with_date_and_branch_filters(): void
+    {
+        $this->actingAs($this->staff());
+        $fixtures = [
+            ['total' => 105, 'discount' => 15, 'subtotal' => 100, 'tax' => 10, 'delivery_fee' => 10, 'created_at' => '2026-10-05 16:00:00'],
+            ['total' => 220, 'discount' => 20, 'created_at' => '2026-10-06 15:59:59'],
+            ['status' => 'Cancelled', 'total' => 800, 'discount' => 80],
+            ['status' => 'Refunded', 'total' => 700, 'discount' => 70],
+            ['deleted_at' => '2026-10-06 02:00:00', 'total' => 600, 'discount' => 60],
+            ['branch' => 'NAR Greenwoods', 'total' => 500, 'discount' => 50],
+            ['created_at' => '2026-10-05 15:59:59', 'total' => 400, 'discount' => 40],
+            ['created_at' => '2026-10-06 16:00:00', 'total' => 300, 'discount' => 30],
+        ];
+        foreach ($fixtures as $index => $fixture) {
+            DB::table('orders')->insert(array_replace([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'tracking_token' => (string) \Illuminate\Support\Str::uuid(),
+                'order_number' => 'DASHBOARD-'.$index,
+                'branch' => 'NAR Commi', 'status' => 'Completed',
+                'created_at' => '2026-10-06 02:00:00',
+            ], $fixture));
+        }
+        $this->getJson('/api/reports/dashboard?from=2026-10-06&to=2026-10-06&branch=NAR%20Commi')
+            ->assertOk()->assertJsonPath('grossSales', 360)->assertJsonPath('discounts', 35)
+            ->assertJsonPath('netSales', 325)->assertJsonPath('sales', 325)
+            ->assertJsonPath('validCount', 2)->assertJsonPath('avg', 162.5);
+        $this->getJson('/api/reports/dashboard?from=2026-10-10&to=2026-10-10')
+            ->assertOk()->assertJsonPath('grossSales', 0)->assertJsonPath('discounts', 0)->assertJsonPath('netSales', 0);
+    }
+
     public function test_customers_have_no_implicit_admin_role(): void
     {
         $this->actingAs(User::factory()->create())->postJson('/api/entities/Product', ['name' => 'Attack'])->assertForbidden();

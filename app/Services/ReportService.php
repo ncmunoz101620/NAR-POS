@@ -66,10 +66,13 @@ class ReportService
         $valid = (clone $q)->whereNotIn('status', ['Cancelled', 'Refunded']);
         $count = (clone $valid)->count();
         $sales = (float) (clone $valid)->sum('total');
+        $discounts = (float) (clone $valid)->sum('discount');
+        // Stored totals already include discounts, delivery fees and tax.
+        $grossSales = round($sales + $discounts, 2);
         $groups = fn ($column) => (clone $q)->select($column.' as name')->selectRaw('COUNT(*) as value')->groupBy($column)->get()->toArray();
         $byStatus = $groups('status');
 
-        return ['sales' => $sales, 'avg' => $count ? $sales / $count : 0, 'validCount' => $count, 'orderCount' => (clone $q)->count(), 'productCount' => Product::whereNull('deleted_at')->count(), 'lowStockCount' => Access::scope(StockLedger::query())->whereColumn('current_stock', '<=', 'min_stock')->count(),
+        return ['sales' => $sales, 'grossSales' => $grossSales, 'discounts' => $discounts, 'netSales' => $sales, 'avg' => $count ? $sales / $count : 0, 'validCount' => $count, 'orderCount' => (clone $q)->count(), 'productCount' => Product::whereNull('deleted_at')->count(), 'lowStockCount' => Access::scope(StockLedger::query())->whereColumn('current_stock', '<=', 'min_stock')->count(),
             'lowStock' => Access::scope(StockLedger::query())->whereColumn('current_stock', '<=', 'min_stock')->limit(20)->get()->map(fn ($r) => ['id' => $r->id, 'name' => $r->item_name.' · '.$r->branch, 'current_stock' => $r->current_stock, 'unit' => $r->unit]),
             'byStatus' => $byStatus, 'bySource' => $groups('customer_source'),
             'byPayment' => (clone $valid)->select('payment_method')->selectRaw('SUM(total) as amount')->groupBy('payment_method')->orderByDesc('amount')->get()->map(fn ($r) => [$r->payment_method, (float) $r->amount]),
