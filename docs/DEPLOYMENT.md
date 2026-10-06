@@ -59,3 +59,8 @@ The import command intentionally requires `--force` before it deletes existing a
 
 SKU conflicts: SQLite exports may contain SKUs that differ only by case or trailing spaces. The importer now stops before writing and lists proposed suffixes. Preview with --dry-run --resolve-sku-conflicts, then add --resolve-sku-conflicts to the actual import only after reviewing the changes. All rows and IDs are preserved. This check covers case and trailing-space collisions, not every possible MySQL collation equivalence; MySQL acceptance remains required.
 
+
+## Admin domain entry
+
+Point admin.nanayasa.ph to the same public directory and install a valid certificate before staff sign in. Its root redirects to /login, including React navigation, while other hosts keep their storefront. Configure ADMIN_HOST and ADMIN_GOOGLE_REDIRECT_URI if changing the admin hostname. Add https://admin.nanayasa.ph/auth/google/callback to the Google OAuth client's authorized redirect URIs. The existing GOOGLE_REDIRECT_URI continues to serve other hosts. Keep SESSION_DOMAIN=null for separate host sessions and SESSION_SECURE_COOKIE=true with HTTPS. This entry-page change does not restrict all storefront/admin paths by host; existing server permissions remain enforced.
+

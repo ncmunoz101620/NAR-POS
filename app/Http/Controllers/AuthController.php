@@ -179,8 +179,13 @@ class AuthController extends Controller
 
     private function googleProvider()
     {
-        return Socialite::driver('google')->setHttpClient(new GuzzleClient([
+        $provider = Socialite::driver('google')->setHttpClient(new GuzzleClient([
             'verify' => CaBundle::getSystemCaRootBundlePath(),
         ]));
+        if (request()->getHost() === config('domains.admin_host')) {
+            $provider->redirectUrl(config('domains.admin_google_redirect'));
+        }
+
+        return $provider;
     }
 }

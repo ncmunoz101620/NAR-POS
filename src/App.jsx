@@ -68,8 +68,13 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
+      {window.location.hostname === document.querySelector('meta[name="admin-host"]')?.content && (
+        <Route path="/" element={<Navigate to="/login" replace />} />
+      )}
       <Route element={<SiteLayout />}>
-        <Route path="/" element={<Home />} />
+        {window.location.hostname !== document.querySelector('meta[name="admin-host"]')?.content && (
+          <Route path="/" element={<Home />} />
+        )}
         <Route path="/menu" element={<Menu />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/cart" element={<Cart />} />

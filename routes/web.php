@@ -49,4 +49,11 @@ Route::prefix('api')->group(function () {
     Route::any('/{path}', fn () => abort(404))->where('path', '.*');
 });
 Route::get('/login', fn () => view('app'))->name('login');
+Route::get('/', function () {
+    if (request()->getHost() === config('domains.admin_host')) {
+        return redirect('/login');
+    }
+
+    return view('app');
+});
 Route::get('/{path?}', fn () => view('app'))->where('path', '.*');
