@@ -76,7 +76,9 @@ class ReportService
             'lowStock' => Access::scope(StockLedger::query())->whereColumn('current_stock', '<=', 'min_stock')->limit(20)->get()->map(fn ($r) => ['id' => $r->id, 'name' => $r->item_name.' · '.$r->branch, 'current_stock' => $r->current_stock, 'unit' => $r->unit]),
             'byStatus' => $byStatus, 'bySource' => $groups('customer_source'),
             'byPayment' => (clone $valid)->select('payment_method')->selectRaw('SUM(total) as amount')->groupBy('payment_method')->orderByDesc('amount')->get()->map(fn ($r) => [$r->payment_method, (float) $r->amount]),
-            'byDay' => (clone $q)->selectRaw($this->dateSql()." as day, COUNT(*) as orders, SUM(CASE WHEN status NOT IN ('Cancelled','Refunded') THEN total ELSE 0 END) as sales")->groupByRaw($this->dateSql())->orderBy('day')->get(),
+            'byDay' => (clone $q)->selectRaw($this->dateSql()." as day, COUNT(*) as orders, SUM(CASE WHEN status NOT IN ('Cancelled','Refunded') THEN total ELSE 0 END) as sales")->groupByRaw($this->dateSql())->orderBy('day')->get()->map(fn ($row) => [
+                'day' => $row->day, 'orders' => (int) $row->orders, 'sales' => (float) $row->sales,
+            ]),
         ];
     }
 

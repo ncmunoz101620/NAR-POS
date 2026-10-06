@@ -87,7 +87,9 @@ class RestaurantTest extends TestCase
         $this->getJson('/api/reports/dashboard?from=2026-10-06&to=2026-10-06&branch=NAR%20Commi')
             ->assertOk()->assertJsonPath('grossSales', 360)->assertJsonPath('discounts', 35)
             ->assertJsonPath('netSales', 325)->assertJsonPath('sales', 325)
-            ->assertJsonPath('validCount', 2)->assertJsonPath('avg', 162.5);
+            ->assertJsonPath('validCount', 2)->assertJsonPath('avg', 162.5)
+            ->assertJsonPath('byDay.0.day', '2026-10-06')->assertJsonPath('byDay.0.sales', 325)
+            ->assertJsonPath('byDay.0.orders', 4);
         $this->getJson('/api/reports/dashboard?from=2026-10-10&to=2026-10-10')
             ->assertOk()->assertJsonPath('grossSales', 0)->assertJsonPath('discounts', 0)->assertJsonPath('netSales', 0);
     }

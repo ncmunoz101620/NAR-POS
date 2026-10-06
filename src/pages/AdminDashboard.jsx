@@ -10,6 +10,7 @@ import ModuleGuard from "@/components/admin/ModuleGuard";
 import { peso } from "@/lib/brand";
 import { Input } from "@/components/ui/input";
 import BranchFilter from "@/components/admin/BranchFilter";
+import { normalizeSalesTrend } from "@/lib/salesTrend";
 
 const PRESETS = ["Today", "Yesterday", "Last 7 Days", "This Week", "This Month", "Last Month", "This Year", "Custom"];
 const COLORS = ["#EE8720", "#581E12", "#F5C400", "#E45A82", "#E83934", "#7a4b3a"];
@@ -108,12 +109,12 @@ export default function AdminDashboard() {
           <p className="font-bold text-[#581E12] mb-4">Sales trend</p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={byDay}>
+              <LineChart data={normalizeSalesTrend(byDay)} margin={{ top: 12, right: 16, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0DFD0" />
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
+                <YAxis type="number" domain={[0, 'auto']} width={80} tick={{ fontSize: 11 }} tickFormatter={(value) => `₱${Number(value).toLocaleString('en-PH')}`} />
                 <Tooltip formatter={(v) => peso(v)} />
-                <Line type="monotone" dataKey="sales" stroke="#EE8720" strokeWidth={3} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="sales" name="Net Sales" stroke="#EE8720" strokeWidth={3} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
