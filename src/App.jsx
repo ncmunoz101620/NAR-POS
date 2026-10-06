@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/toaster"
+import { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -44,6 +45,14 @@ import AdminSettings from '@/pages/AdminSettings';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const location = useLocation();
+  const redirectToAdmin = window.location.hostname === document.querySelector('meta[name="customer-host"]')?.content
+    && ['/admin', '/login'].includes(location.pathname.replace(/\/+$/, ''));
+  const adminHost = document.querySelector('meta[name="admin-host"]')?.content;
+  useEffect(() => {
+    if (redirectToAdmin && adminHost) window.location.replace(`https://${adminHost}/`);
+  }, [redirectToAdmin, adminHost]);
+  if (redirectToAdmin) return null;
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {

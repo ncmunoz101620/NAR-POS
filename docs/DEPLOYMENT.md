@@ -74,3 +74,6 @@ Validate the result in a new isolated SQLite file with `php scripts/verify-data-
 
 For the live cutover, update the application code, upload the final JSON to `storage/app/private/imports`, and run a dry run. Put the site in maintenance mode, take a production database backup, then run the replacement import. Use `&&` between the backup and import so a failed backup stops the cutover. The import clears old database sessions, email codes, and password-reset tokens because user IDs may change. After successful import, optimize and bring the site up. If import fails, it rolls back transactional tables; keep the backup and inspect the error before retrying. Do not re-run migrations with `fresh` or seed demo records.
 
+
+Customer entry redirects: /admin and /login on CUSTOMER_HOST (default nanayasa.ph) redirect to https://ADMIN_HOST/ (default admin.nanayasa.ph), on both direct requests and React navigation. Local login and the admin domain login remain available. Clear cached routes and views after deploying this change. Other paths retain their existing behavior.
+

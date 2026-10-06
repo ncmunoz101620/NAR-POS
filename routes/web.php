@@ -48,7 +48,15 @@ Route::prefix('api')->group(function () {
     Route::get('/entities/{entity}/{id?}', [EntityController::class, 'index']);
     Route::any('/{path}', fn () => abort(404))->where('path', '.*');
 });
-Route::get('/login', fn () => view('app'))->name('login');
+$adminEntry = function () {
+    if (request()->getHost() === config('domains.customer_host')) {
+        return redirect()->away('https://'.config('domains.admin_host').'/');
+    }
+
+    return view('app');
+};
+Route::get('/login', $adminEntry)->name('login');
+Route::get('/admin', $adminEntry);
 Route::get('/', function () {
     if (request()->getHost() === config('domains.admin_host')) {
         return redirect('/login');

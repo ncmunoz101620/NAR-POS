@@ -6,6 +6,15 @@ use Tests\TestCase;
 
 class AdminDomainTest extends TestCase
 {
+    public function test_customer_admin_and_login_entries_redirect_to_admin_domain(): void
+    {
+        foreach (['/admin', '/login', '/admin/', '/login?returnTo=https://example.org'] as $path) {
+            $this->get('https://nanayasa.ph'.$path)->assertRedirect('https://admin.nanayasa.ph/');
+        }
+        $this->get('https://admin.nanayasa.ph/admin')->assertOk();
+        $this->get('http://localhost/login')->assertOk();
+    }
+
     public function test_admin_root_redirects_to_login_and_login_renders(): void
     {
         config(['domains.admin_host' => 'admin.nanayasa.ph']);
