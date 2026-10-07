@@ -1,9 +1,9 @@
 import React from "react";
-import { Utensils, ShoppingBag, Truck, AlertTriangle, Bell } from "lucide-react";
+import { Utensils, ShoppingBag, Truck, AlertTriangle, Bell, Printer } from "lucide-react";
 
 const TYPE_ICON = { "Dine-In": Utensils, Takeout: ShoppingBag, Delivery: Truck };
 
-export default function KitchenOrderCard({ order, onAdvance, canEdit, nextLabel, nextDisabled, isNew }) {
+export default function KitchenOrderCard({ order, onAdvance, canEdit, nextLabel, nextDisabled, isNew, onReprint, printDisabled, printing }) {
   const TypeIcon = TYPE_ICON[order.order_type] || Utensils;
   const items = order.items || [];
   return (
@@ -62,6 +62,14 @@ export default function KitchenOrderCard({ order, onAdvance, canEdit, nextLabel,
           className="w-full rounded-full bg-[#EE8720] text-white px-4 py-2.5 text-sm font-bold disabled:opacity-50 disabled:cursor-default"
         >
           {nextLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onReprint}
+          disabled={printDisabled}
+          className="mt-2 w-full rounded-full border border-[#F0DFD0] text-[#581E12] px-4 py-2 text-sm font-bold inline-flex items-center justify-center gap-2 hover:bg-[#FBF6EF] disabled:opacity-50 disabled:cursor-default"
+        >
+          <Printer className="w-4 h-4" /> {printing ? "Printing…" : "Reprint slip"}
         </button>
       </div>
     </div>

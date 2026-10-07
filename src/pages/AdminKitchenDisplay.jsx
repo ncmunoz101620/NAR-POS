@@ -36,6 +36,8 @@ export default function AdminKitchenDisplay() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(null);
+  const [printing, setPrinting] = useState(null);
+  const printInProgress = useRef(false);
   const [cookPrompt, setCookPrompt] = useState(null);
   const [cookName, setCookName] = useState("");
   const [soundOn, setSoundOn] = useState(true);
@@ -165,6 +167,27 @@ export default function AdminKitchenDisplay() {
     advance(order, session);
   };
 
+  const reprint = async (order) => {
+    if (printInProgress.current) return;
+    printInProgress.current = true;
+    setPrinting(order.id);
+    try {
+      const settings = await loadSettings();
+      const result = await printKitchenSlip(order, settings, order.cook_name);
+      if (result.ok) {
+        toast({ title: "Kitchen slip printed", description: `#${order.order_number} sent to printer` });
+      } else {
+        const error = describePrintError(result);
+        toast({ title: `Kitchen slip not printed — ${error.title}`, description: error.description, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Kitchen slip not printed", description: error?.message || String(error), variant: "destructive" });
+    } finally {
+      printInProgress.current = false;
+      setPrinting(null);
+    }
+  };
+
   const confirmCook = (session) => {
     const name = cookName.trim();
     if (!name) return;
@@ -239,10 +262,13 @@ export default function AdminKitchenDisplay() {
                           key={o.id}
                           order={o}
                           isNew={newIds.has(o.id)}
-                          canEdit={colCanEdit && busy !== o.id}
+                          canEdit={colCanEdit && busy !== o.id && printing !== o.id}
                           nextDisabled={!col.next}
                           nextLabel={busy === o.id ? "Updating…" : col.label}
                           onAdvance={() => handleAdvance(o, session)}
+                          onReprint={() => reprint(o)}
+                          printDisabled={printing !== null || busy !== null}
+                          printing={printing === o.id}
                         />
                       ))}
                     </div>
