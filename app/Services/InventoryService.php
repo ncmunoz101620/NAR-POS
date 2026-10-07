@@ -54,7 +54,11 @@ class InventoryService
             $this->ensureRows($item, $type);
             $row = StockLedger::where(['item_id' => $id, 'item_type' => $type, 'branch' => $branch])->lockForUpdate()->firstOrFail();
             $next = (int) round($row->current_stock * 1000) + (int) round($delta * 1000);
-            if ($next < 0) {
+            // Manual orders are accepted independently of recorded inventory balances.
+            // Keep their consumption and reversals journaled even below zero.
+            $manualOrderMovement = $order?->source === 'Manual'
+                && in_array($movement, ['Sales Consumption', 'Return'], true);
+            if ($next < 0 && ! $manualOrderMovement) {
                 throw ValidationException::withMessages(['quantity' => "Insufficient {$item->name} stock in {$branch}."]);
             }
             $row->current_stock = $next / 1000;

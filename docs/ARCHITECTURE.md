@@ -8,7 +8,7 @@ Laravel 13 / PHP 8.3 owns persistence, authentication, permissions, uploads and 
 - `Access`: Gate-backed module/action authorization and branch scoping. The original module names and nine actions are retained. A missing staff profile grants no administrative access.
 - `EntityRequest` / `EntityService`: allowlisted and validated catalog/configuration CRUD. Normalized product sizes/modifiers, recipe lines and role grants serialize into the existing React shapes. Server audit records are generated inside write transactions.
 - `OrderRequest` / `OrderService`: server product/variant/modifier lookup, integer-cent arithmetic, settings-based tax/minimum/delivery rules, staff discount validation, unique daily numbering, request-key retries, status history and inventory coordination.
-- `InventoryService`: all balance changes, receive/adjust/deduct/restore/transfer operations, item and balance row locks, journal entries and branch/global synchronization. Negative stock fails atomically.
+- `InventoryService`: all balance changes, receive/adjust/deduct/restore/transfer operations, item and balance row locks, journal entries and branch/global synchronization. Negative stock fails atomically except for manual-order consumption and its journaled reversals.
 - `ReportService`: SQL aggregates over filtered orders/items and movements; Manila calendar boundaries are converted to UTC. Dashboard/report totals are independent of display page size. Order list pagination and export use the same server filters.
 - `UploadController`: random storage names, image MIME/size validation, public catalog images and private payment/discount evidence. Private files require staff authorization and applicable branch access.
 
@@ -24,10 +24,10 @@ CSV/XLS/XLSX ingredient import uses a local SheetJS parser, preview and Laravel 
 
 ## Operational limits
 
-Stock is checked when an order is created and deducted at completion, matching the source workflow. Pending orders do not reserve stock; a competing order can therefore cause completion to fail with an insufficient-stock error. Do not represent the availability check as a reservation system.
+For public orders, stock is checked at creation and deducted at completion. Pending orders do not reserve stock; a competing order can therefore cause completion to fail with an insufficient-stock error. Do not represent the availability check as a reservation system.
 
 Catalog and legacy inventory detail lists retain bounded responses (up to 5,000 rows); summary reports and order exports do not inherit the original 500-order limit. For larger catalogs/movement histories, paginate those remaining screens before rollout. Browser export/print permissions cannot prevent a reader from manually copying information already authorized for display.
 
 Infrastructure secrets belong in environment configuration. Email uses the configured Laravel mailer synchronously. The only scheduler entry sends the optional daily sales report at 8:00 AM Manila time; no queue worker or external payment service is required.
 
-Authorized manual order creation does not require ingredient stock availability. It records the order without mutating inventory, including when imported balances are zero or negative. Public checkout still validates branch stock. Completion still deducts stock through InventoryService and rejects insufficient stock.
+Authorized manual order creation does not require ingredient stock availability. It records the order without mutating inventory, including when imported balances are zero or negative. Public checkout still validates branch stock. Manual order completion deducts stock through InventoryService even when the resulting balance is negative. Cancellation and refund reverse the recorded deductions exactly once, including when the restored balance remains negative. Public order completion still rejects insufficient stock.

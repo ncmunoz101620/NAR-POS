@@ -358,6 +358,29 @@ class RestaurantTest extends TestCase
         $this->assertDatabaseCount('order_status_histories', 1);
     }
 
+    public function test_manual_orders_complete_below_zero_and_reverse_once(): void
+    {
+        $this->actingAs($this->staff());
+        $ingredient = Ingredient::first();
+        StockLedger::where('item_id', $ingredient->id)->where('branch', 'NAR Commi')->update(['current_stock' => -2]);
+        $ids = [];
+        for ($i = 0; $i < 2; $i++) {
+            $ids[] = $this->postJson('/api/orders', $this->order(['source' => 'Manual', 'branch' => 'NAR Commi']))->assertOk()->json('id');
+        }
+        foreach ($ids as $id) {
+            $this->patchJson('/api/orders/'.$id, ['status' => 'Completed'])->assertOk()->assertJsonPath('inventory_deducted', true);
+            $this->patchJson('/api/orders/'.$id, ['status' => 'Completed'])->assertOk();
+        }
+        $this->assertEquals(-3, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+        $this->assertEquals(2, InventoryTransaction::whereIn('order_id', $ids)->where('type', 'Sales Consumption')->count());
+        foreach ([$ids[0] => 'Cancelled', $ids[1] => 'Refunded'] as $id => $status) {
+            $this->patchJson('/api/orders/'.$id, ['status' => $status, 'reason' => 'Test reversal'])->assertOk();
+            $this->patchJson('/api/orders/'.$id, ['status' => $status])->assertOk();
+        }
+        $this->assertEquals(-2, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+        $this->assertEquals(2, InventoryTransaction::whereIn('order_id', $ids)->where('type', 'Return')->whereNotNull('reversal_of')->count());
+    }
+
     public function test_branch_and_kitchen_restrictions(): void
     {
         $this->actingAs($this->staff());
