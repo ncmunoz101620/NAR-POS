@@ -84,6 +84,31 @@ class RestaurantTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
     }
 
+    public function test_manual_order_reports_branch_stock_shortage_without_mutation(): void
+    {
+        $this->actingAs($this->staff());
+        $ingredient = Ingredient::first();
+        $before = InventoryTransaction::count();
+        $this->postJson('/api/orders', $this->order(['source' => 'Manual', 'branch' => 'NAR Greenwoods']))
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.items.0', "{$ingredient->name} in NAR Greenwoods: requires 0.5 kg, available 0 kg, short 0.5 kg.");
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseCount('inventory_transactions', $before);
+        $this->assertEquals(20, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+    }
+
+    public function test_availability_uses_same_precision_as_stock_deduction(): void
+    {
+        $product = Product::first();
+        $ingredient = Ingredient::first();
+        \App\Models\Recipe::first()->items()->update(['quantity' => 0.1]);
+        StockLedger::where('item_id', $ingredient->id)->where('branch', 'NAR Commi')->update(['current_stock' => 0.3]);
+        app(InventoryService::class)->validateAvailability([
+            ['product_id' => $product->id, 'variant_name' => 'Regular', 'quantity' => 3],
+        ], 'NAR Commi');
+        $this->assertEquals(0.3, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+    }
+
     public function test_variant_spacing_does_not_bypass_availability_or_ambiguous_matches(): void
     {
         $this->actingAs($this->staff());

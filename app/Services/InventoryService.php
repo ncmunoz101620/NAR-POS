@@ -94,11 +94,20 @@ class InventoryService
 
     public function validateAvailability(array $items, string $branch): void
     {
+        $shortages = [];
+        $format = fn ($value) => rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
         foreach ($this->requirements($items) as $id => $qty) {
-            Ingredient::lockForUpdate()->findOrFail($id);
-            if ($this->calculateAvailableStock($id, 'Production', $branch) < $qty) {
-                throw ValidationException::withMessages(['items' => 'Insufficient recipe ingredient stock.']);
+            $ingredient = Ingredient::lockForUpdate()->findOrFail($id);
+            $available = $this->calculateAvailableStock($id, 'Production', $branch);
+            // Match the three-decimal precision used when deducting stock.
+            $requiredUnits = (int) round($qty * 1000);
+            $availableUnits = (int) round($available * 1000);
+            if ($availableUnits < $requiredUnits) {
+                $shortages[] = "{$ingredient->name} in {$branch}: requires ".$format($requiredUnits / 1000)." {$ingredient->unit}, available ".$format($availableUnits / 1000)." {$ingredient->unit}, short ".$format(($requiredUnits - $availableUnits) / 1000)." {$ingredient->unit}.";
             }
+        }
+        if ($shortages !== []) {
+            throw ValidationException::withMessages(['items' => $shortages]);
         }
     }
 

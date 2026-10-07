@@ -37,6 +37,7 @@ export default function ManualOrder() {
     customer_source: "Walk-in", delivery_fee: 0, branch: userBranch, gcash_type: "",
   });
   const [saving, setSaving] = useState(false);
+  const [submitErrors, setSubmitErrors] = useState([]);
   const [requestKey,setRequestKey] = useState(()=>crypto.randomUUID());
   const [uploadingId, setUploadingId] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(null);
@@ -143,6 +144,7 @@ export default function ManualOrder() {
   };
 
   const submit = async () => {
+    setSubmitErrors([]);
     if (!lines.length) return toast({ title: "Cart is empty", variant: "destructive" });
     if (!form.customer_name.trim()) return toast({ title: "Customer name required", variant: "destructive" });
     if (form.order_type === "Delivery") {
@@ -199,6 +201,7 @@ export default function ManualOrder() {
         }
       }, 400);
     } catch (e) {
+      setSubmitErrors(Object.values(e.data?.errors || {}).flat().length ? Object.values(e.data.errors).flat() : [e.message]);
       toast({ title: "Failed to create order", description: e.message, variant: "destructive" });
     } finally {
       setSaving(false);
@@ -516,6 +519,14 @@ export default function ManualOrder() {
             <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Order notes" />
           </div>
 
+          {submitErrors.length > 0 && (
+            <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <p className="font-bold">Order was not created</p>
+              <ul className="mt-2 list-disc pl-5 space-y-1">
+                {submitErrors.map((error, index) => <li key={index}>{error}</li>)}
+              </ul>
+            </div>
+          )}
           <button onClick={submit} disabled={saving} className="mt-4 w-full rounded-full bg-[#EE8720] hover:bg-[#d97612] text-white py-3.5 font-bold disabled:opacity-60">
             {saving ? "Submitting…" : "Submit Order"}
           </button>
