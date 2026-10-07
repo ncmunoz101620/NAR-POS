@@ -101,7 +101,7 @@ export default function ManualOrder() {
   const changeQty = (idx, delta) =>
     setLines((ls) => ls.map((l, i) => (i === idx ? { ...l, quantity: Math.max(1, l.quantity + delta) } : l)));
 
-  const requiresProof = ["bank transfer", "gcash"].includes((form.payment_method || "").toLowerCase());
+  const requiresProof = form.customer_source !== "Grab" && ["bank transfer", "gcash"].includes((form.payment_method || "").toLowerCase());
   const isGcash = (form.payment_method || "").toLowerCase() === "gcash";
 
   const uploadDiscountId = async (file) => {

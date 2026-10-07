@@ -93,13 +93,14 @@ class OrderService
         return ['subtotal' => $subtotal / 100, 'discount' => $discount / 100, 'delivery_fee' => $delivery / 100, 'tax' => $tax / 100, 'total' => ($subtotal - $discount + $delivery + $tax) / 100];
     }
 
-    private function payment(array $data): PaymentMethod
+    private function payment(array $data, bool $manual): PaymentMethod
     {
         $method = PaymentMethod::where('name', $data['payment_method'] ?? '')->where('is_active', true)->first();
         if (! $method) {
             $this->fail('payment_method', 'Choose an active payment method.');
         }
-        if ($method->requires_reference && empty($data['payment_reference'])) {
+        $grabManualOrder = $manual && ($data['customer_source'] ?? '') === 'Grab';
+        if ($method->requires_reference && ! $grabManualOrder && empty($data['payment_reference'])) {
             $this->fail('payment_reference', 'Payment reference is required.');
         }
         if (($data['source'] ?? '') === 'Manual' && strtolower($method->name) === 'gcash' && ! in_array($data['gcash_type'] ?? '', ['Corporate', 'Personal'])) {
@@ -137,7 +138,7 @@ class OrderService
                     }
                 }
             }
-            $method = $this->payment($data);
+            $method = $this->payment($data, $manual);
             $lines = $this->priceItems($data['items'], $manual);
             if (! $manual) {
                 $this->inventory->validateAvailability($lines, $branch);
@@ -219,7 +220,7 @@ class OrderService
             $allowed = ['customer_name', 'customer_phone', 'customer_email', 'order_type', 'table_number', 'address', 'province', 'city', 'barangay', 'postcode', 'landmark', 'preferred_date', 'preferred_time', 'payment_method', 'payment_status', 'payment_reference', 'payment_reference_2', 'gcash_type', 'delivery_fee', 'discount', 'discount_type', 'discount_reason', 'discount_id_url', 'notes', 'cook_name'];
             $order->fill(array_intersect_key($data, array_flip($allowed)));
             if (array_intersect(array_keys($data), ['payment_method', 'payment_reference', 'gcash_type'])) {
-                $order->payment_method_id = $this->payment($order->toArray())->id;
+                $order->payment_method_id = $this->payment($order->toArray(), $order->source === 'Manual')->id;
             }
             if (array_intersect(array_keys($data), ['discount', 'discount_type', 'delivery_fee'])) {
                 if (isset($data['discount']) && ! isset($data['discount_type']) && $this->cents($data['discount']) !== $this->cents($before['discount'])) {

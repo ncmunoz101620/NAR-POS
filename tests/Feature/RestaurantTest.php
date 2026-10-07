@@ -107,6 +107,22 @@ class RestaurantTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
     }
 
+    public function test_manual_grab_orders_do_not_require_payment_reference(): void
+    {
+        \App\Models\PaymentMethod::create(['name' => 'GRAB', 'requires_reference' => true, 'is_active' => true]);
+        $this->actingAs($this->staff());
+        $payload = $this->order(['source' => 'Manual', 'customer_source' => 'Grab', 'payment_method' => 'GRAB', 'payment_status' => 'Paid']);
+        $id = $this->postJson('/api/orders', $payload)->assertOk()->assertJsonPath('payment_status', 'Paid')->json('id');
+        $this->patchJson('/api/orders/'.$id, ['payment_method' => 'GRAB', 'payment_reference' => null])->assertOk();
+        foreach (['Meta', 'Walk-in'] as $source) {
+            $this->postJson('/api/orders', array_replace($payload, ['customer_source' => $source]))
+                ->assertUnprocessable()->assertJsonValidationErrors('payment_reference');
+        }
+        $this->postJson('/api/orders', array_replace($payload, ['source' => 'Online']))
+            ->assertUnprocessable()->assertJsonValidationErrors('payment_reference');
+        $this->assertDatabaseCount('orders', 1);
+    }
+
     public function test_availability_uses_same_precision_as_stock_deduction(): void
     {
         $product = Product::first();
