@@ -84,17 +84,27 @@ class RestaurantTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
     }
 
-    public function test_manual_order_reports_branch_stock_shortage_without_mutation(): void
+    public function test_manual_order_can_be_created_without_stock_and_does_not_mutate_inventory(): void
     {
         $this->actingAs($this->staff());
         $ingredient = Ingredient::first();
         $before = InventoryTransaction::count();
         $this->postJson('/api/orders', $this->order(['source' => 'Manual', 'branch' => 'NAR Greenwoods']))
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.items.0', "{$ingredient->name} in NAR Greenwoods: requires 0.5 kg, available 0 kg, short 0.5 kg.");
-        $this->assertDatabaseCount('orders', 0);
+            ->assertOk()->assertJsonPath('status', 'Confirmed')->assertJsonPath('inventory_deducted', false);
+        StockLedger::where('item_id', $ingredient->id)->where('branch', 'NAR Greenwoods')->update(['current_stock' => -5]);
+        $this->postJson('/api/orders', $this->order(['source' => 'Manual', 'branch' => 'NAR Greenwoods']))->assertOk();
+        $this->assertDatabaseCount('orders', 2);
         $this->assertDatabaseCount('inventory_transactions', $before);
+        $this->assertEquals(-5, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Greenwoods'));
         $this->assertEquals(20, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+    }
+
+    public function test_public_orders_still_require_stock_and_cannot_claim_manual_access(): void
+    {
+        StockLedger::where('item_type', 'Production')->update(['current_stock' => 0]);
+        $this->postJson('/api/orders', $this->order())->assertUnprocessable()->assertJsonValidationErrors('items');
+        $this->postJson('/api/orders', $this->order(['source' => 'Manual']))->assertForbidden();
+        $this->assertDatabaseCount('orders', 0);
     }
 
     public function test_availability_uses_same_precision_as_stock_deduction(): void

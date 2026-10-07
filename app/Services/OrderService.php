@@ -139,7 +139,9 @@ class OrderService
             }
             $method = $this->payment($data);
             $lines = $this->priceItems($data['items'], $manual);
-            $this->inventory->validateAvailability($lines, $branch);
+            if (! $manual) {
+                $this->inventory->validateAvailability($lines, $branch);
+            }
             $totals = $this->totals($lines, $data, $manual);
             $date = now('Asia/Manila')->format('Ymd');
             DB::table('order_sequences')->insertOrIgnore(['date' => $date, 'value' => 0]);
