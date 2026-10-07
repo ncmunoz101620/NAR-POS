@@ -84,10 +84,10 @@ export default function ManualOrder() {
   const vat = Math.round(vatableAmount * ((settings?.tax_rate || 0) / 100) * 100) / 100;
   const total = vatableAmount + vat + deliveryFee;
 
-  const pick = (p) => { setPicked(p); setVariant((p.variants || [])[0] || null); setQty(1); };
+  const pick = (p) => { setPicked(p); setVariant((p.variants || []).find((v) => v.is_available) || null); setQty(1); };
 
   const addLine = () => {
-    if (!picked || !variant) return;
+    if (!picked || !variant?.is_available) return;
     setLines((ls) => {
       const found = ls.find((l) => l.product_id === picked.id && l.variant_name === variant.name);
       if (found) return ls.map((l) => (l === found ? { ...l, quantity: l.quantity + qty } : l));
@@ -145,6 +145,11 @@ export default function ManualOrder() {
   const submit = async () => {
     if (!lines.length) return toast({ title: "Cart is empty", variant: "destructive" });
     if (!form.customer_name.trim()) return toast({ title: "Customer name required", variant: "destructive" });
+    if (form.order_type === "Delivery") {
+      const fields = { address: "House number and street", province: "Province", city: "City", barangay: "Barangay" };
+      const missing = Object.keys(fields).find((key) => !form[key]?.trim());
+      if (missing) return toast({ title: `${fields[missing]} required`, description: "Complete the delivery address, including the separate barangay field.", variant: "destructive" });
+    }
     if (requiresProof && !form.payment_reference) return toast({ title: "Proof of payment required", variant: "destructive" });
     if (isGcash && !form.gcash_type) return toast({ title: "GCash account type required", description: "Select Corporate or Personal.", variant: "destructive" });
     const hasDiscount = form.discount_type && form.discount_type !== "none";
@@ -248,12 +253,13 @@ export default function ManualOrder() {
                 {(picked.variants || []).map((v) => (
                   <button
                     key={v.name}
+                    disabled={!v.is_available}
                     onClick={() => setVariant(v)}
-                    className={`rounded-xl border px-5 py-3 font-bold transition-colors ${
+                    className={`rounded-xl border px-5 py-3 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                       variant?.name === v.name ? "bg-[#EE8720] text-white border-[#EE8720]" : "bg-white text-[#581E12] border-[#F0DFD0]"
                     }`}
                   >
-                    {v.name}<span className="block text-xs font-semibold opacity-80">{peso(v.price, settings?.currency_symbol)}</span>
+                    {v.name}<span className="block text-xs font-semibold opacity-80">{v.is_available ? peso(v.price, settings?.currency_symbol) : "Unavailable"}</span>
                   </button>
                 ))}
               </div>
@@ -263,7 +269,7 @@ export default function ManualOrder() {
                   <span className="w-8 text-center font-extrabold text-lg text-[#581E12]">{qty}</span>
                   <button onClick={() => setQty(qty + 1)} className="w-10 h-10 rounded-full grid place-items-center hover:bg-[#F8CFB1]/40"><Plus className="w-4 h-4" /></button>
                 </div>
-                <button onClick={addLine} className="rounded-full bg-[#581E12] text-white px-7 py-3 font-bold">Add to Cart</button>
+                <button onClick={addLine} disabled={!variant?.is_available} className="rounded-full bg-[#581E12] text-white px-7 py-3 font-bold disabled:opacity-40">Add to Cart</button>
                 <button onClick={() => setPicked(null)} className="text-sm font-semibold text-[#7a4b3a]">Cancel</button>
               </div>
             </div>

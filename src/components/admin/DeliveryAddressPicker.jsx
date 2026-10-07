@@ -30,7 +30,7 @@ export default function DeliveryAddressPicker({ value, onChange }) {
 
   const tabs = [
     { key: "province", label: "Province/State" },
-    { key: "district", label: "District" },
+    { key: "district", label: "City / Municipality" },
     { key: "barangay", label: "Barangay" },
   ];
 
@@ -57,6 +57,18 @@ export default function DeliveryAddressPicker({ value, onChange }) {
           className="w-32 bg-gray-50"
         />
       </div>
+
+      {value.city && (
+        <label className="block text-xs text-[#7a4b3a]">
+          Barangay (required for delivery; select or type)
+          <Input
+            value={value.barangay || ""}
+            onChange={(e) => onChange({ ...value, barangay: e.target.value })}
+            placeholder="Enter barangay, e.g. Socorro"
+            className="mt-1 bg-white"
+          />
+        </label>
+      )}
 
       {open && (
         <div className="bg-white rounded-xl border border-[#F0DFD0] shadow-lg z-30">

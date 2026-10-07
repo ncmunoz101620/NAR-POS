@@ -34,8 +34,14 @@ class OrderService
                 $this->fail('items', 'A product is no longer available.');
             }
             $v = $p->variants->firstWhere('name', $item['variant_name']);
+            if (! $v) {
+                // Imported names may have surrounding spaces removed by request middleware.
+                // Keep the stored name for recipe matching; never guess between duplicates.
+                $matches = $p->variants->filter(fn ($variant) => trim($variant->name) === trim($item['variant_name']));
+                $v = $matches->count() === 1 ? $matches->first() : null;
+            }
             if (! $v || ! $v->is_available) {
-                $this->fail('items', 'A variant is no longer available.');
+                $this->fail('items', "{$p->name} ({$item['variant_name']}) is no longer available. Choose an available size or refresh the product list.");
             }
             $price = $this->cents($v->price);
             $mods = [];
@@ -125,9 +131,9 @@ class OrderService
                 $this->fail('customer_phone', 'Phone is required.');
             }
             if ($type === 'Delivery') {
-                foreach (['address', 'province', 'city', 'barangay'] as $key) {
-                    if (empty($data[$key])) {
-                        $this->fail($key, 'Delivery address is required.');
+                foreach (['address' => 'House number and street', 'province' => 'Province', 'city' => 'City', 'barangay' => 'Barangay'] as $key => $label) {
+                    if (trim((string) ($data[$key] ?? '')) === '') {
+                        $this->fail($key, "{$label} is required for delivery.");
                     }
                 }
             }

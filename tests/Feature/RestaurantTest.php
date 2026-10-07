@@ -62,6 +62,40 @@ class RestaurantTest extends TestCase
         $this->getJson('/api/entities/Order')->assertForbidden();
     }
 
+    public function test_manual_delivery_accepts_imported_variant_spacing_and_preserves_stored_name(): void
+    {
+        $this->actingAs($this->staff());
+        $product = Product::first();
+        $product->variants()->where('name', 'Regular')->update(['name' => 'Regular ']);
+        \App\Models\Recipe::where('product_id', $product->id)->where('variant_name', 'Regular')->update(['variant_name' => 'Regular ']);
+        $this->postJson('/api/orders', $this->order([
+            'source' => 'Manual', 'order_type' => 'Delivery',
+            'address' => '145 Test Street', 'province' => 'Metro Manila', 'city' => 'Quezon City', 'barangay' => 'Socorro',
+        ]))->assertOk()->assertJsonPath('items.0.variant_name', 'Regular ')->assertJsonPath('total', 300);
+    }
+
+    public function test_delivery_identifies_missing_barangay_even_when_street_is_filled(): void
+    {
+        $this->actingAs($this->staff());
+        $this->postJson('/api/orders', $this->order([
+            'source' => 'Manual', 'order_type' => 'Delivery',
+            'address' => '145 Test Street, Barangay Socorro', 'province' => 'Metro Manila', 'city' => 'Quezon City',
+        ]))->assertUnprocessable()->assertJsonPath('errors.barangay.0', 'Barangay is required for delivery.');
+        $this->assertDatabaseCount('orders', 0);
+    }
+
+    public function test_variant_spacing_does_not_bypass_availability_or_ambiguous_matches(): void
+    {
+        $this->actingAs($this->staff());
+        $product = Product::first();
+        $product->variants()->where('name', 'Regular')->update(['name' => 'Regular ', 'is_available' => false]);
+        $this->postJson('/api/orders', $this->order(['source' => 'Manual']))->assertUnprocessable()->assertJsonValidationErrors('items');
+        $product->variants()->update(['is_available' => true]);
+        $product->variants()->create(['name' => ' Regular', 'price' => 999, 'is_available' => true]);
+        $this->postJson('/api/orders', $this->order(['source' => 'Manual']))->assertUnprocessable()->assertJsonValidationErrors('items');
+        $this->assertDatabaseCount('orders', 0);
+    }
+
     public function test_dashboard_separates_gross_discounts_and_net_with_date_and_branch_filters(): void
     {
         $this->actingAs($this->staff());
