@@ -24,8 +24,13 @@ class SendDailySalesReport extends Command
             ? \Carbon\CarbonImmutable::parse($this->option('date'), 'Asia/Manila')->startOfDay()
             : $reports->previousBusinessDate();
 
-        $sent = $reports->sendForDate($date);
-        $this->info("Daily sales report sent to {$sent} recipient(s) for ".$date->toDateString().'.');
+        try {
+            $sent = $reports->sendForDate($date);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            $this->error($exception->getMessage());
+            return self::FAILURE;
+        }
+        $this->info("Daily sales report submitted for {$sent} recipient(s) for ".$date->toDateString().'. Inbox delivery is not confirmed.');
 
         return self::SUCCESS;
     }

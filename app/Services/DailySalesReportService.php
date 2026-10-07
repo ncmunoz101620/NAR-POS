@@ -7,6 +7,8 @@ use App\Models\Setting;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class DailySalesReportService
 {
@@ -84,15 +86,41 @@ class DailySalesReportService
             return 0;
         }
 
+        $this->assertDeliveryMailer((string) config('mail.default'));
         $data = $this->dataForDate($date);
         $subject = 'Nanay Asa Daily Sales Report - '.$data['date']->format('F j, Y');
         $html = $this->html($data, $settings);
 
-        Mail::html($html, function ($message) use ($recipients, $subject) {
-            $message->to($recipients)->subject($subject);
-        });
+        try {
+            $sent = Mail::html($html, function ($message) use ($recipients, $subject) {
+                $message->to($recipients)->subject($subject);
+            });
+        } catch (TransportExceptionInterface $exception) {
+            throw ValidationException::withMessages(['mail' => 'The mail provider could not accept the report. Check the outgoing mail settings and provider delivery logs before retrying.']);
+        }
+        if ($sent === null) {
+            throw ValidationException::withMessages(['mail' => 'The report was not submitted to the mail provider.']);
+        }
 
         return count($recipients);
+    }
+
+    private function assertDeliveryMailer(string $name, array $visited = []): void
+    {
+        $mailer = config('mail.mailers.'.$name);
+        $transport = $mailer['transport'] ?? null;
+        if (! $transport || in_array($transport, ['log', 'array'], true) || in_array($name, $visited, true)) {
+            throw ValidationException::withMessages(['mail' => 'Email delivery is not configured. Ask the administrator to configure a delivery mailer (such as SMTP) and refresh the cached configuration. Log and array mailers do not deliver email.']);
+        }
+        if (in_array($transport, ['failover', 'roundrobin'], true)) {
+            $children = $mailer['mailers'] ?? [];
+            if ($children === []) {
+                throw ValidationException::withMessages(['mail' => 'No delivery mailer is configured for reports.']);
+            }
+            foreach ($children as $child) {
+                $this->assertDeliveryMailer($child, [...$visited, $name]);
+            }
+        }
     }
 
     public function html(array $data, ?Setting $settings = null): string

@@ -96,7 +96,7 @@ export default function AdminSettings() {
     setSendingReport(true);
     try {
       const result = await request("/reports/daily-sales/test", "POST", { recipients: reportRecipients });
-      toast({ title: "Test report sent", description: `Sent to ${result.sent} recipient(s).` });
+      toast({ title: "Report submitted", description: `Submitted for ${result.sent} recipient(s). Inbox delivery is not yet confirmed.` });
     } catch (e) {
       toast({ title: "Failed to send report", description: e.message, variant: "destructive" });
     }

@@ -77,3 +77,24 @@ For the live cutover, update the application code, upload the final JSON to `sto
 
 Customer entry redirects: /admin and /login on CUSTOMER_HOST (default nanayasa.ph) redirect to https://ADMIN_HOST/ (default admin.nanayasa.ph), on both direct requests and React navigation. Local login and the admin domain login remain available. Clear cached routes and views after deploying this change. Other paths retain their existing behavior.
 
+
+## Report email delivery
+
+Daily reports require a delivery mailer. The log/array transports only record messages; reports reject these, including fallback chains containing them. A submitted report means the transport accepted it, not that it reached each inbox. Transport failures return a safe error rather than provider diagnostics that may contain private details.
+
+For a Google Workspace mailbox with app passwords permitted, enable 2-Step Verification and create a dedicated app password. Configure production privately (never commit credentials):
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_SCHEME=smtps
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=465
+MAIL_USERNAME=main@nanayasa.ph
+MAIL_PASSWORD="REPLACE_WITH_GOOGLE_APP_PASSWORD"
+MAIL_FROM_ADDRESS=main@nanayasa.ph
+MAIL_FROM_NAME="Nanay Asa Restaurant"
+```
+
+Remove any old MAIL_URL override. Use the actual mailbox account for authentication; an alias alone cannot authenticate. Refresh cached configuration with `php artisan config:cache` after saving. Test via Settings > Reports and check receipt. If app passwords are unavailable, ask the Workspace administrator to configure an approved SMTP relay or OAuth integration. If connection times out, ask the hosting provider whether outbound Google SMTP is permitted. Do not disable certificate verification. Inspect Google Workspace Email Log Search for accepted messages that do not arrive.
+
+Google documentation: https://support.google.com/a/answer/176600 and https://support.google.com/accounts/answer/185833.
