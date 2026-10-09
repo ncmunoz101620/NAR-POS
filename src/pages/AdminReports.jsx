@@ -8,16 +8,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BranchFilter from "@/components/admin/BranchFilter";
 
-const toCSV = (title, headers, rows) => {
-  const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${title.replace(/\s+/g, "-").toLowerCase()}.csv`;
-  a.click();
-};
+import { exportReport, reportTotal } from "@/lib/reportExport";
 
-function Report({ title, headers, rows, canExport }) {
+function Report({ title, headers, rows, canExport, totalColumn }) {
+  const total = totalColumn == null ? null : reportTotal(rows, totalColumn);
+  const totalRow = headers.map((_, i) => i === 0 ? "Total Amount" : i === totalColumn ? total : "");
+  const exportRows = total === null ? rows : [...rows, totalRow];
   return (
     <div className="bg-white rounded-2xl border border-[#F0DFD0] overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#F7EEE5]">
@@ -25,10 +21,10 @@ function Report({ title, headers, rows, canExport }) {
         <div className="flex gap-2">
           {canExport && (
             <>
-              <button onClick={() => toCSV(title, headers, rows)} className="inline-flex items-center gap-1.5 rounded-full border border-[#F0DFD0] px-3 py-1.5 text-xs font-bold text-[#581E12]">
+              <button onClick={() => exportReport(title, headers, exportRows, "csv")} className="inline-flex items-center gap-1.5 rounded-full border border-[#F0DFD0] px-3 py-1.5 text-xs font-bold text-[#581E12]">
                 <Download className="w-3.5 h-3.5" /> CSV
               </button>
-              <button onClick={() => toCSV(title + " excel", headers, rows)} className="inline-flex items-center gap-1.5 rounded-full border border-[#F0DFD0] px-3 py-1.5 text-xs font-bold text-[#581E12]">
+              <button onClick={() => exportReport(title, headers, exportRows, "xlsx")} className="inline-flex items-center gap-1.5 rounded-full border border-[#F0DFD0] px-3 py-1.5 text-xs font-bold text-[#581E12]">
                 <Download className="w-3.5 h-3.5" /> Excel
               </button>
               <button onClick={() => window.print()} className="rounded-full border border-[#F0DFD0] px-3 py-1.5 text-xs font-bold text-[#581E12]">PDF / Print</button>
@@ -49,6 +45,7 @@ function Report({ title, headers, rows, canExport }) {
               </tr>
             ))}
           </tbody>
+          {total !== null && <tfoot className="bg-[#FBF6EF] font-bold text-[#581E12]"><tr>{totalRow.map((cell, i) => <td key={i} className="px-4 py-3 border-t border-[#F0DFD0]">{cell}</td>)}</tr></tfoot>}
         </table>
       </div>
     </div>
@@ -91,9 +88,9 @@ export default function AdminReports() {
             </TabsList>
             <div className="mt-4">
               <TabsContent value="sales"><Report title="Daily Sales Report" headers={["Date", "Orders", "Gross Sales", "Discounts", "Refunds", "Cancelled", "Cancelled Amount", "Net Sales"]} rows={daily} canExport={session.can("reports", "export")} /></TabsContent>
-              <TabsContent value="payments"><Report title="Payment Summary" headers={["Payment Method", "Orders", "Amount"]} rows={payments} canExport={session.can("reports", "export")} /></TabsContent>
-              <TabsContent value="products"><Report title="Product Sales Report" headers={["Product", "Variant", "Qty Sold", "Revenue"]} rows={productSales} canExport={session.can("reports", "export")} /></TabsContent>
-              <TabsContent value="categories"><Report title="Category Sales Report" headers={["Category", "Qty Sold", "Revenue"]} rows={categorySales} canExport={session.can("reports", "export")} /></TabsContent>
+              <TabsContent value="payments"><Report title="Payment Summary" headers={["Payment Method", "Orders", "Amount"]} rows={payments} totalColumn={2} canExport={session.can("reports", "export")} /></TabsContent>
+              <TabsContent value="products"><Report title="Product Sales Report" headers={["Product", "Variant", "Qty Sold", "Revenue"]} rows={productSales} totalColumn={3} canExport={session.can("reports", "export")} /></TabsContent>
+              <TabsContent value="categories"><Report title="Category Sales Report" headers={["Category", "Qty Sold", "Revenue"]} rows={categorySales} totalColumn={2} canExport={session.can("reports", "export")} /></TabsContent>
               <TabsContent value="inventory"><Report title="Inventory Consumption Report" headers={["Ingredient", "Beginning", "Stock In", "Consumption", "Waste", "Adjustment", "Ending"]} rows={consumption} canExport={session.can("reports", "export")} /></TabsContent>
               <TabsContent value="foodcost"><Report title="Food Cost Report" headers={["Product", "Variant", "Selling Price", "Recipe Cost", "Gross Profit", "Margin %"]} rows={foodCost} canExport={session.can("reports", "export")} /></TabsContent>
             </div>

@@ -6,11 +6,13 @@
     "isDynamicEntry": true
   },
   "src/main.jsx": {
-    "file": "assets/main--o86AOjM.js",
+    "file": "assets/main-BXnYK-IC.js",
     "name": "main",
     "src": "src/main.jsx",
     "isEntry": true,
     "dynamicImports": [
+      "node_modules/xlsx/xlsx.mjs",
+      "node_modules/xlsx/xlsx.mjs",
       "node_modules/xlsx/xlsx.mjs"
     ],
     "css": [
