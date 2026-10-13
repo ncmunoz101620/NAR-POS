@@ -1,3 +1,5 @@
+import { redirectExpiredSession } from '../lib/sessionExpiry.js';
+
 let csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 export async function request(path, method = 'GET', data) {
   if (method !== 'GET' && !csrf) csrf = (await (await fetch('/api/csrf', { credentials: 'same-origin' })).json()).token;
@@ -7,6 +9,10 @@ export async function request(path, method = 'GET', data) {
     headers: { Accept: 'application/json', ...(multipart ? {} : { 'Content-Type': 'application/json' }), ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}) },
     body: data === undefined ? undefined : multipart ? data : JSON.stringify(data),
   });
+  if (redirectExpiredSession(response.status)) {
+    csrf = null;
+    throw Object.assign(new Error('Session expired'), { status: response.status, sessionExpired: true });
+  }
   const contentType = response.headers.get('content-type') || '';
   const result = response.status === 204 ? null : contentType.includes('application/json') ? await response.json() : { message: await response.text() || 'Request failed' };
   if (!response.ok) {
