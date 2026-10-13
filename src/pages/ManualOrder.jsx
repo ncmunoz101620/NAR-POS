@@ -19,7 +19,7 @@ export default function ManualOrder() {
   const { toast } = useToast();
   const session = useOutletContext();
   const creatorName = session?.appUser?.name || session?.authUser?.full_name || session?.authUser?.email || "CSR";
-  const userBranch = session?.appUser?.branch && session.appUser.branch !== "All" ? session.appUser.branch : "NAR Commi";
+  const userBranch = session?.appUser?.branch && session.appUser.branch !== "All" ? session.appUser.branch : "NAR Greenwoods";
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [methods, setMethods] = useState([]);
