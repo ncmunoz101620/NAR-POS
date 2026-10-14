@@ -19,7 +19,6 @@ export default function ManualOrder() {
   const { toast } = useToast();
   const session = useOutletContext();
   const creatorName = session?.appUser?.name || session?.authUser?.full_name || session?.authUser?.email || "CSR";
-  const userBranch = session?.appUser?.branch && session.appUser.branch !== "All" ? session.appUser.branch : "NAR Greenwoods";
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [methods, setMethods] = useState([]);
@@ -34,7 +33,7 @@ export default function ManualOrder() {
     customer_name: "", customer_phone: "", order_type: "Dine-In", table_number: "",
     address: "", province: "", city: "", barangay: "", postcode: "",
     payment_method: "", payment_reference: "", payment_reference_2: "", payment_status: "Paid", notes: "",
-    customer_source: "Walk-in", delivery_fee: 0, branch: userBranch, gcash_type: "",
+    customer_source: "Walk-in", delivery_fee: 0, branch: "", gcash_type: "",
   });
   const [saving, setSaving] = useState(false);
   const [submitErrors, setSubmitErrors] = useState([]);
@@ -145,6 +144,7 @@ export default function ManualOrder() {
 
   const submit = async () => {
     setSubmitErrors([]);
+    if (!form.branch) return toast({ title: "Select Branch", description: "Choose the branch for this order before submitting.", variant: "destructive" });
     if (!lines.length) return toast({ title: "Cart is empty", variant: "destructive" });
     if (!form.customer_name.trim()) return toast({ title: "Customer name required", variant: "destructive" });
     if (form.order_type === "Delivery") {
@@ -187,7 +187,7 @@ export default function ManualOrder() {
 
       setLines([]);
       setRequestKey(crypto.randomUUID());
-      setForm((f) => ({ ...f, customer_name: "", customer_phone: "", address: "", province: "", city: "", barangay: "", postcode: "", payment_reference: "", payment_reference_2: "", notes: "", customer_source: "Walk-in", discount: 0, discount_type: "none", discount_reason: "", discount_id_url: "", delivery_fee: 0, preferred_date: "", preferred_time: "" }));
+      setForm((f) => ({ ...f, branch: "", customer_name: "", customer_phone: "", address: "", province: "", city: "", barangay: "", postcode: "", payment_reference: "", payment_reference_2: "", notes: "", customer_source: "Walk-in", discount: 0, discount_type: "none", discount_reason: "", discount_id_url: "", delivery_fee: 0, preferred_date: "", preferred_time: "" }));
       setLastOrder(order);
       toast({ title: `Order ${order.order_number} created` });
       const copies = settings?.receipt_copies || 1;
@@ -358,9 +358,9 @@ export default function ManualOrder() {
 
           <div className="mt-4 space-y-2.5">
             <div className="space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#7a4b3a]/70">Branch</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#7a4b3a]/70">Branch *</p>
               <Select value={form.branch} onValueChange={(v) => set("branch", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="Branch" aria-required="true"><SelectValue placeholder="Select Branch" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="NAR Commi">NAR Commi</SelectItem>
                   <SelectItem value="NAR Greenwoods">NAR Greenwoods</SelectItem>

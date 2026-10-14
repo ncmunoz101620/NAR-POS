@@ -47,7 +47,7 @@ class RestaurantTest extends TestCase
     {
         $p = Product::first();
 
-        return array_replace(['customer_name' => 'Customer', 'customer_phone' => '09170000000', 'order_type' => 'Pick-up', 'payment_method' => 'Cash', 'items' => [['product_id' => $p->id, 'variant_name' => 'Regular', 'quantity' => 2, 'unit_price' => 1, 'subtotal' => 1, 'modifiers' => []]], 'total' => 1, 'subtotal' => 1], $override);
+        return array_replace(['branch' => 'NAR Commi', 'customer_name' => 'Customer', 'customer_phone' => '09170000000', 'order_type' => 'Pick-up', 'payment_method' => 'Cash', 'items' => [['product_id' => $p->id, 'variant_name' => 'Regular', 'quantity' => 2, 'unit_price' => 1, 'subtotal' => 1, 'modifiers' => []]], 'total' => 1, 'subtotal' => 1], $override);
     }
 
     public function test_public_catalog_and_guest_checkout_recalculate_prices_and_tracking_is_private(): void
@@ -97,6 +97,19 @@ class RestaurantTest extends TestCase
         $this->assertDatabaseCount('inventory_transactions', $before);
         $this->assertEquals(-5, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Greenwoods'));
         $this->assertEquals(20, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+    }
+
+    public function test_manual_order_requires_an_explicit_branch(): void
+    {
+        $this->actingAs($this->staff());
+        $payload = $this->order(['source' => 'Manual']);
+        unset($payload['branch']);
+        $this->postJson('/api/orders', $payload)->assertUnprocessable()->assertJsonValidationErrors('branch');
+        $this->postJson('/api/orders', array_replace($payload, ['branch' => '']))->assertUnprocessable()->assertJsonValidationErrors('branch');
+        $this->assertDatabaseCount('orders', 0);
+        foreach (['NAR Commi', 'NAR Greenwoods'] as $branch) {
+            $this->postJson('/api/orders', array_replace($payload, ['branch' => $branch]))->assertOk()->assertJsonPath('branch', $branch);
+        }
     }
 
     public function test_public_orders_still_require_stock_and_cannot_claim_manual_access(): void

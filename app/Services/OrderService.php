@@ -118,7 +118,10 @@ class OrderService
 
                 return $existing;
             }
-            $branch = $manual ? ($data['branch'] ?? 'NAR Commi') : 'NAR Commi';
+            if ($manual && empty($data['branch'])) {
+                $this->fail('branch', 'Select a branch for this manual order.');
+            }
+            $branch = $manual ? $data['branch'] : 'NAR Commi';
             if ($manual) {
                 Access::branch($branch);
             }
