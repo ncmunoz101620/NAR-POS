@@ -419,6 +419,21 @@ class RestaurantTest extends TestCase
         $this->getJson('/api/reports/dashboard')->assertOk()->assertJsonPath('sales', 0);
     }
 
+    public function test_payment_summary_combines_grab_orders_but_keeps_gcash_account_types_separate(): void
+    {
+        $this->actingAs($this->staff());
+        foreach ([['GRAB', null], ['GRAB', 'Corporate'], ['GCash', 'Corporate'], ['GCash', 'Personal']] as [$method, $type]) {
+            $id = $this->postJson('/api/orders', $this->order(['source' => 'Manual']))->assertOk()->json('id');
+            DB::table('orders')->where('id', $id)->update(['payment_method' => $method, 'gcash_type' => $type]);
+        }
+
+        $payments = collect($this->getJson('/api/reports/reports')->assertOk()->json('payments'))->keyBy(0);
+        $this->assertCount(3, $payments);
+        $this->assertSame(['GRAB', 2, '₱600.00'], $payments->get('GRAB'));
+        $this->assertSame(['GCash (Corporate)', 1, '₱300.00'], $payments->get('GCash (Corporate)'));
+        $this->assertSame(['GCash (Personal)', 1, '₱300.00'], $payments->get('GCash (Personal)'));
+    }
+
     public function test_inactive_staff_and_audit_tampering_are_denied(): void
     {
         $user = $this->staff();
