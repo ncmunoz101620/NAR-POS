@@ -1,5 +1,5 @@
 import React from "react";
-import { Utensils, ShoppingBag, Truck, AlertTriangle, Bell, Printer } from "lucide-react";
+import { Utensils, ShoppingBag, Truck, AlertTriangle, Bell, Printer, Building2 } from "lucide-react";
 
 const TYPE_ICON = { "Dine-In": Utensils, Takeout: ShoppingBag, Delivery: Truck };
 
@@ -28,6 +28,10 @@ export default function KitchenOrderCard({ order, onAdvance, canEdit, nextLabel,
             {order._stale && <AlertTriangle className="w-3 h-3" />}
             {order._elapsed}
           </span>
+        </div>
+        <div className="mt-2 flex items-start gap-1.5 text-sm font-bold text-[#581E12]">
+          <Building2 aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>Branch: {order.branch?.trim() || "Not assigned"}</span>
         </div>
         {order.cook_name && (
           <div className="mt-1.5 text-xs font-semibold text-[#EE8720] bg-[#EE8720]/10 rounded-full px-2 py-0.5 inline-flex items-center gap-1 w-fit">
