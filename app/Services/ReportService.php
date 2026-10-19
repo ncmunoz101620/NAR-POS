@@ -87,8 +87,15 @@ class ReportService
         $q = $this->orders($filters);
         $valid = (clone $q)->whereNotIn('status', ['Cancelled', 'Refunded']);
         $daily = (clone $q)->selectRaw($this->dateSql()." as day, COUNT(*) as orders, SUM(total) as gross, SUM(discount) as discounts, SUM(CASE WHEN status='Refunded' THEN total ELSE 0 END) as refunds, SUM(CASE WHEN status='Cancelled' THEN 1 ELSE 0 END) as cancelled, SUM(CASE WHEN status='Cancelled' THEN total ELSE 0 END) as cancelled_amount")->groupByRaw($this->dateSql())->orderBy('day')->get()->map(fn ($r) => [$r->day, $r->orders, $this->money($r->gross), $this->money($r->discounts), $this->money($r->refunds), $r->cancelled, $this->money($r->cancelled_amount), $this->money($r->gross - $r->refunds - $r->cancelled_amount)]);
-        $gcashDetail = "CASE WHEN LOWER(TRIM(payment_method)) = 'gcash' THEN COALESCE(NULLIF(TRIM(gcash_type), ''), '') ELSE '' END";
-        $payments = (clone $valid)->select('payment_method')->selectRaw($gcashDetail.' as gcash_detail, COUNT(*) as count, SUM(total) as amount')->groupBy('payment_method')->groupByRaw($gcashDetail)->get()->map(fn ($r) => [strtolower($r->payment_method ?? '') === 'gcash' && $r->gcash_detail ? 'GCash ('.$r->gcash_detail.')' : $r->payment_method, $r->count, $this->money($r->amount)]);
+        $paymentGroups = (clone $valid)->select('payment_method', 'gcash_type')->selectRaw('COUNT(*) as count, SUM(total) as amount')->groupBy('payment_method', 'gcash_type')->get();
+        $payments = $paymentGroups->groupBy(function ($row) {
+            $method = trim($row->payment_method ?? '');
+            if (strcasecmp($method, 'GCash') === 0 && trim($row->gcash_type ?? '') !== '') {
+                return 'GCash ('.trim($row->gcash_type).')';
+            }
+
+            return strcasecmp($method, 'GRAB') === 0 ? 'GRAB' : $method;
+        })->map(fn ($rows, $label) => [$label, (int) $rows->sum('count'), $this->money($rows->sum('amount'))])->values();
         $items = DB::table('order_items')->whereIn('order_id', (clone $valid)->select('id'));
         $products = (clone $items)->select('product_name', 'variant_name')->selectRaw('SUM(quantity) as qty, SUM(subtotal) as revenue')->groupBy('product_name', 'variant_name')->orderByDesc('qty')->get()->map(fn ($r) => [$r->product_name, $r->variant_name, $r->qty, $this->money($r->revenue)]);
         $categories = (clone $items)->leftJoin('products', 'products.id', '=', 'order_items.product_id')->leftJoin('categories', 'categories.id', '=', 'products.category_id')->select('categories.name')->selectRaw('SUM(quantity) as qty, SUM(subtotal) as revenue')->groupBy('categories.name')->get()->map(fn ($r) => [$r->name ?? 'Uncategorized', $r->qty, $this->money($r->revenue)]);
