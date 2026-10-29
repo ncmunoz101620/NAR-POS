@@ -86,7 +86,7 @@ class DailySalesReportService
             return 0;
         }
 
-        $gmailApi = config('services.gmail_reports.delivery') === 'gmail_api';
+        $gmailApi = in_array(config('services.gmail_reports.delivery'), ['gmail_api', 'gmail_oauth'], true);
         if (! $gmailApi) {
             $this->assertDeliveryMailer((string) config('mail.default'));
         }

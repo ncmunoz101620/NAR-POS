@@ -108,4 +108,52 @@ class DailySalesMailTest extends TestCase
             unlink($keyFile);
         }
     }
+
+    public function test_keyless_gmail_oauth_sends_only_from_the_authorized_mailbox(): void
+    {
+        config([
+            'services.gmail_reports.delivery' => 'gmail_oauth',
+            'services.gmail_reports.sender' => 'main@nanayasa.ph',
+            'services.gmail_reports.oauth_client_id' => 'client-id',
+            'services.gmail_reports.oauth_client_secret' => 'client-secret',
+            'services.gmail_reports.oauth_refresh_token' => 'refresh-token',
+        ]);
+        Mail::shouldReceive('html')->never();
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'access-token'], 200),
+            'openidconnect.googleapis.com/v1/userinfo' => Http::response(['email' => 'main@nanayasa.ph', 'email_verified' => true], 200),
+            'gmail.googleapis.com/*' => Http::response(['id' => 'gmail-message-id'], 200),
+        ]);
+
+        $this->assertSame(1, app(DailySalesReportService::class)->sendForDate(CarbonImmutable::now(), ['recipient@example.com']));
+        Http::assertSent(fn ($request) => $request->url() === 'https://oauth2.googleapis.com/token'
+            && $request['grant_type'] === 'refresh_token'
+            && $request['refresh_token'] === 'refresh-token');
+        Http::assertSent(fn ($request) => $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
+            && $request->hasHeader('Authorization', 'Bearer access-token'));
+    }
+
+    public function test_keyless_gmail_oauth_rejects_a_different_mailbox(): void
+    {
+        config([
+            'services.gmail_reports.delivery' => 'gmail_oauth',
+            'services.gmail_reports.sender' => 'main@nanayasa.ph',
+            'services.gmail_reports.oauth_client_id' => 'client-id',
+            'services.gmail_reports.oauth_client_secret' => 'client-secret',
+            'services.gmail_reports.oauth_refresh_token' => 'refresh-token',
+        ]);
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'access-token'], 200),
+            'openidconnect.googleapis.com/v1/userinfo' => Http::response(['email' => 'someone-else@nanayasa.ph', 'email_verified' => true], 200),
+            'gmail.googleapis.com/*' => Http::response(['id' => 'should-not-send'], 200),
+        ]);
+
+        try {
+            app(DailySalesReportService::class)->sendForDate(CarbonImmutable::now(), ['recipient@example.com']);
+            $this->fail('A different sender mailbox should be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('Gmail API could not submit', $exception->getMessage());
+        }
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'messages/send'));
+    }
 }

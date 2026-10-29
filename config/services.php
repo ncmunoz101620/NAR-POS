@@ -11,6 +11,9 @@ return [
         'delivery' => env('DAILY_REPORT_DELIVERY', 'mailer'),
         'sender' => env('GMAIL_REPORT_SENDER'),
         'key_file' => env('GMAIL_SERVICE_ACCOUNT_KEY_FILE'),
+        'oauth_client_id' => env('GMAIL_OAUTH_CLIENT_ID'),
+        'oauth_client_secret' => env('GMAIL_OAUTH_CLIENT_SECRET'),
+        'oauth_refresh_token' => env('GMAIL_OAUTH_REFRESH_TOKEN'),
     ],
 
     /*

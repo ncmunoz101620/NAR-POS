@@ -117,3 +117,24 @@ The daily sales report can use the Gmail API independently of Laravel's default 
 5. Run `php artisan optimize:clear` and `php artisan optimize`, then use **Settings → Reports → Send test report now**. A successful test means Gmail accepted the message; check the recipient inbox and Workspace Email Log Search for delivery. The automatic report still requires the scheduler cron described above.
 
 Google's [Gmail sending guide](https://developers.google.com/workspace/gmail/api/guides/sending), [service-account delegation guide](https://developers.google.com/identity/protocols/oauth2/service-account), and [messages.send reference](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send) describe this flow. If Google rejects delegation, verify the numeric client ID, `gmail.send` scope, Gmail API enablement, and sender mailbox before retrying. Do not send the JSON key or OAuth tokens to support.
+
+### Keyless Gmail API when service-account keys are blocked
+
+If Google Cloud enforces `iam.disableServiceAccountKeyCreation`, leave that organization policy in place. Use the dedicated `gmail_oauth` report delivery mode instead. The mailbox `main@nanayasa.ph` authorizes the app once; a refresh token lets the daily scheduler send without a person present. This mode does not use a service-account JSON key or domain-wide delegation.
+
+1. Enable Gmail API in the Google Cloud project. Under **Google Auth Platform → Clients**, create a **separate Web application OAuth client** named `NAR Daily Reports`. Add `https://developers.google.com/oauthplayground` as its authorized redirect URI. Keep the existing `NAR POS` login client and its redirect URI unchanged. Save the new client ID and secret privately.
+2. In **Google Auth Platform → Audience**, use **Internal** if the project is owned by the `nanayasa.ph` Workspace organization and that option is available. An External app left in **Testing** issues refresh tokens that expire after seven days for Gmail scopes; publishing to production may involve Google's verification requirements. Do not rely on a Testing token for the daily schedule.
+3. Open Google's [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) in the mailbox account `main@nanayasa.ph`. In its settings (gear), choose **Server-side**, **Offline** access, and **Use your own OAuth credentials**. Enter the dedicated client ID and secret. In Step 1 input these exact scopes, separated by spaces: `openid email https://www.googleapis.com/auth/gmail.send`. Click **Authorize APIs** and consent using `main@nanayasa.ph`. In Step 2 exchange the code and save the **refresh token** privately. The Playground sends your OAuth client credentials to Google's server to proxy the exchange; do not use its default credentials, whose tokens it revokes after 24 hours. Never share a screenshot containing the refresh token.
+4. Deploy the code and set these values in the production `.env` (no JSON key path is needed):
+
+   ```dotenv
+   DAILY_REPORT_DELIVERY=gmail_oauth
+   GMAIL_REPORT_SENDER=main@nanayasa.ph
+   GMAIL_OAUTH_CLIENT_ID=YOUR_DEDICATED_CLIENT_ID
+   GMAIL_OAUTH_CLIENT_SECRET=YOUR_DEDICATED_CLIENT_SECRET
+   GMAIL_OAUTH_REFRESH_TOKEN=YOUR_REFRESH_TOKEN
+   ```
+
+5. Run `php artisan optimize:clear` and `php artisan optimize`. In **Settings → Reports**, send a test report. The app checks the authorized Google mailbox against `GMAIL_REPORT_SENDER` before calling Gmail's send API. If Google revokes or expires the refresh token, repeat the one-time authorization and replace only `GMAIL_OAUTH_REFRESH_TOKEN`.
+
+Google references: [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/), [OAuth offline access and refresh-token expiry](https://developers.google.com/identity/protocols/oauth2/), and [Gmail's `gmail.send` scope](https://developers.google.com/workspace/gmail/api/auth/scopes).
