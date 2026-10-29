@@ -19,6 +19,7 @@ export default function AdminSettings() {
   const { toast } = useToast();
   const session = useOutletContext();
   const roleName = (session?.roleName || "").toUpperCase();
+  const gmailResult = new URLSearchParams(window.location.search).get("gmail");
   const isPrinterOnlyRole = ["CSR", "RND COOK"].includes(roleName);
   const canPairPrinter = roleName === "ADMIN";
   const [form, setForm] = useState(null);
@@ -26,6 +27,7 @@ export default function AdminSettings() {
   const [uploading, setUploading] = useState(false);
   const [reportEmail, setReportEmail] = useState("");
   const [sendingReport, setSendingReport] = useState(false);
+  const [gmailConnection, setGmailConnection] = useState(null);
 
   const uploadBanner = async (file) => {
     if (!file) return;
@@ -56,6 +58,10 @@ export default function AdminSettings() {
   useEffect(() => {
     api.entities.Setting.list().then((list) => setForm(list[0] || { restaurant_name: "Nanay Asa Restaurant", currency_symbol: "₱" }));
   }, []);
+
+  useEffect(() => {
+    if (roleName === "ADMIN") request("/reports/gmail/status").then(setGmailConnection).catch(() => {});
+  }, [roleName]);
 
   if (!form) return <div className="h-40 rounded-2xl bg-white border border-[#F0DFD0] animate-pulse" />;
 
@@ -124,7 +130,7 @@ export default function AdminSettings() {
         </button>
       </PageHeader>
 
-      <Tabs defaultValue="restaurant">
+      <Tabs defaultValue={gmailResult ? "reports" : "restaurant"}>
         <TabsList className="bg-white border border-[#F0DFD0]">
           <TabsTrigger value="restaurant">Restaurant</TabsTrigger>
           <TabsTrigger value="ordering">Ordering</TabsTrigger>
@@ -273,6 +279,20 @@ export default function AdminSettings() {
 
         <TabsContent value="reports" className="mt-4">
           <div className="bg-white rounded-2xl border border-[#F0DFD0] p-6 max-w-3xl space-y-5">
+            {(gmailResult === "error" || gmailResult === "denied") && (
+              <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">Gmail was not connected. Please retry with the configured sender mailbox.</p>
+            )}
+            {gmailConnection?.mode === "gmail_oauth" && (
+              <div className="rounded-xl border border-[#F0DFD0] bg-[#FFF8F2] p-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-bold text-[#581E12]">Gmail report sender</p>
+                  <p className="text-sm text-[#7a4b3a]">{gmailConnection.connected ? `Connected: ${gmailConnection.sender}` : `Connect ${gmailConnection.sender} to send scheduled reports.`}</p>
+                </div>
+                <a href="/reports/gmail/connect" className="rounded-full bg-[#581E12] text-white px-5 py-2 text-sm font-bold hover:bg-[#6b2a1c]">
+                  {gmailConnection.connected ? "Reconnect Gmail" : "Connect Gmail"}
+                </a>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="font-bold text-[#581E12]">Daily Sales Report</p>

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Google\Auth\Credentials\ServiceAccountCredentials;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\Mime\Address;
@@ -68,9 +70,12 @@ class GmailApiReportSender
 
     protected function userAccessToken(string $sender): string
     {
-        $clientId = trim((string) config('services.gmail_reports.oauth_client_id'));
-        $clientSecret = trim((string) config('services.gmail_reports.oauth_client_secret'));
-        $refreshToken = trim((string) config('services.gmail_reports.oauth_refresh_token'));
+        $clientId = trim((string) (config('services.gmail_reports.oauth_client_id') ?: config('services.google.client_id')));
+        $clientSecret = trim((string) (config('services.gmail_reports.oauth_client_secret') ?: config('services.google.client_secret')));
+        $connection = DB::table('gmail_report_connections')->where('id', 1)->where('sender', strtolower($sender))->first();
+        $refreshToken = $connection
+            ? Crypt::decryptString($connection->refresh_token)
+            : trim((string) config('services.gmail_reports.oauth_refresh_token'));
         if ($clientId === '' || $clientSecret === '' || $refreshToken === '') {
             throw ValidationException::withMessages(['mail' => 'Gmail OAuth delivery is not configured.']);
         }

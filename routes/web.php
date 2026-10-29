@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EntityController;
+use App\Http\Controllers\GmailReportConnectionController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OrderController;
@@ -40,6 +41,7 @@ Route::prefix('api')->group(function () {
         Route::post('/uploads', [UploadController::class, 'store']);
         Route::get('/uploads/{name}', [UploadController::class, 'show']);
         Route::post('/reports/daily-sales/test', [ReportController::class, 'sendDailySalesTest']);
+        Route::get('/reports/gmail/status', [GmailReportConnectionController::class, 'status']);
         Route::get('/reports/{type}', [ReportController::class, 'show']);
         Route::post('/entities/{entity}', [EntityController::class, 'store']);
         Route::patch('/entities/{entity}/{id}', [EntityController::class, 'update']);
@@ -47,6 +49,10 @@ Route::prefix('api')->group(function () {
     });
     Route::get('/entities/{entity}/{id?}', [EntityController::class, 'index']);
     Route::any('/{path}', fn () => abort(404))->where('path', '.*');
+});
+Route::middleware('auth')->group(function () {
+    Route::get('/reports/gmail/connect', [GmailReportConnectionController::class, 'connect']);
+    Route::get('/reports/gmail/callback', [GmailReportConnectionController::class, 'callback']);
 });
 $adminEntry = function () {
     if (request()->getHost() === config('domains.customer_host')) {

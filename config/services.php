@@ -14,6 +14,7 @@ return [
         'oauth_client_id' => env('GMAIL_OAUTH_CLIENT_ID'),
         'oauth_client_secret' => env('GMAIL_OAUTH_CLIENT_SECRET'),
         'oauth_refresh_token' => env('GMAIL_OAUTH_REFRESH_TOKEN'),
+        'oauth_redirect' => env('GMAIL_REPORT_REDIRECT_URI', 'https://admin.nanayasa.ph/reports/gmail/callback'),
     ],
 
     /*

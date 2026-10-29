@@ -9,6 +9,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\SentMessage;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\TestCase;
@@ -155,5 +157,32 @@ class DailySalesMailTest extends TestCase
             $this->assertStringContainsString('Gmail API could not submit', $exception->getMessage());
         }
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'messages/send'));
+    }
+
+    public function test_connected_gmail_mailbox_can_send_without_a_refresh_token_in_env(): void
+    {
+        config([
+            'services.gmail_reports.delivery' => 'gmail_oauth',
+            'services.gmail_reports.sender' => 'main@nanayasa.ph',
+            'services.gmail_reports.oauth_client_id' => 'client-id',
+            'services.gmail_reports.oauth_client_secret' => 'client-secret',
+            'services.gmail_reports.oauth_refresh_token' => null,
+        ]);
+        DB::table('gmail_report_connections')->insert([
+            'id' => 1,
+            'sender' => 'main@nanayasa.ph',
+            'refresh_token' => Crypt::encryptString('stored-refresh-token'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'access-token'], 200),
+            'openidconnect.googleapis.com/v1/userinfo' => Http::response(['email' => 'main@nanayasa.ph', 'email_verified' => true], 200),
+            'gmail.googleapis.com/*' => Http::response(['id' => 'gmail-message-id'], 200),
+        ]);
+
+        $this->assertSame(1, app(DailySalesReportService::class)->sendForDate(CarbonImmutable::now(), ['recipient@example.com']));
+        Http::assertSent(fn ($request) => $request->url() === 'https://oauth2.googleapis.com/token'
+            && $request['refresh_token'] === 'stored-refresh-token');
     }
 }
