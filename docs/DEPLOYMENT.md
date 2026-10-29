@@ -6,6 +6,8 @@ PHP 8.3+, Composer 2, Node 20+, MySQL 8/MariaDB with InnoDB, HTTPS and a configu
 
 Point the web server document root at `public/`, never the repository root. Configure all non-file routes to `public/index.php`. The included `.htaccess` supports Apache. Grant writes only to `storage` and `bootstrap/cache`. Keep `.env`, database backups and private uploads out of the document root.
 
+The GoDaddy cPanel Git repository is checked out directly at `/home/khw2ft6zoaa3/public_html/nanayasa.ph`, which is also the deployment path. Its `.cpanel.yml` only prepares runtime directories; it must not copy `public/build` or `.htaccess` onto themselves or recursively change permissions on uploaded files. After a pull, verify the live build and run required Composer and Artisan release commands separately.
+
 ## Release steps
 
 1. Back up the database and both upload disks. Prepare and verify a data import before migrating a live installation.
