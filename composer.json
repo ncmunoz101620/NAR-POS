@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.3",
         "composer/ca-bundle": "1.5",
+        "google/auth": "^1.53",
         "laravel/framework": "^13.0",
         "laravel/socialite": "^5.31",
         "laravel/tinker": "^3.0"

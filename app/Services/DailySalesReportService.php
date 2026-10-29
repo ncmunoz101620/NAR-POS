@@ -86,10 +86,19 @@ class DailySalesReportService
             return 0;
         }
 
-        $this->assertDeliveryMailer((string) config('mail.default'));
+        $gmailApi = config('services.gmail_reports.delivery') === 'gmail_api';
+        if (! $gmailApi) {
+            $this->assertDeliveryMailer((string) config('mail.default'));
+        }
         $data = $this->dataForDate($date);
         $subject = 'Nanay Asa Daily Sales Report - '.$data['date']->format('F j, Y');
         $html = $this->html($data, $settings);
+
+        if ($gmailApi) {
+            app(GmailApiReportSender::class)->send($recipients, $subject, $html);
+
+            return count($recipients);
+        }
 
         try {
             $sent = Mail::html($html, function ($message) use ($recipients, $subject) {

@@ -7,6 +7,12 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/auth/google/callback'),
     ],
 
+    'gmail_reports' => [
+        'delivery' => env('DAILY_REPORT_DELIVERY', 'mailer'),
+        'sender' => env('GMAIL_REPORT_SENDER'),
+        'key_file' => env('GMAIL_SERVICE_ACCOUNT_KEY_FILE'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

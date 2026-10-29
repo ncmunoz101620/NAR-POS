@@ -98,3 +98,22 @@ MAIL_FROM_NAME="Nanay Asa Restaurant"
 Remove any old MAIL_URL override. Use the actual mailbox account for authentication; an alias alone cannot authenticate. Refresh cached configuration with `php artisan config:cache` after saving. Test via Settings > Reports and check receipt. If app passwords are unavailable, ask the Workspace administrator to configure an approved SMTP relay or OAuth integration. If connection times out, ask the hosting provider whether outbound Google SMTP is permitted. Do not disable certificate verification. Inspect Google Workspace Email Log Search for accepted messages that do not arrive.
 
 Google documentation: https://support.google.com/a/answer/176600 and https://support.google.com/accounts/answer/185833.
+
+### Gmail API for the daily sales report
+
+The daily sales report can use the Gmail API independently of Laravel's default mailer. This is suitable for the Google Workspace mailbox `main@nanayasa.ph` when outbound SMTP is unavailable. Other application emails, such as registration and password reset, still use `MAIL_MAILER` and need their own working mail transport.
+
+1. In a Google Cloud project owned by the Workspace organization, enable the Gmail API and create a service account with domain-wide delegation enabled. Create a JSON key for that service account. Keep the key private; never place it under `public/`, commit it, or paste it into a support message.
+2. A Workspace super administrator must go to **Admin console → Security → Access and data control → API controls → Manage Domain Wide Delegation → Add new**. Enter the service account's **numeric client ID** and grant only `https://www.googleapis.com/auth/gmail.send`. The sender must be an actual Workspace mailbox, not merely an alias.
+3. Put the JSON key in a private, readable path outside the web root, for example `/home/khw2ft6zoaa3/gmail-report-service-account.json`, readable only by the hosting account. Install the updated Composer dependencies with `composer install --no-dev --prefer-dist --optimize-autoloader`.
+4. Set these production environment values privately:
+
+   ```dotenv
+   DAILY_REPORT_DELIVERY=gmail_api
+   GMAIL_REPORT_SENDER=main@nanayasa.ph
+   GMAIL_SERVICE_ACCOUNT_KEY_FILE=/home/khw2ft6zoaa3/gmail-report-service-account.json
+   ```
+
+5. Run `php artisan optimize:clear` and `php artisan optimize`, then use **Settings → Reports → Send test report now**. A successful test means Gmail accepted the message; check the recipient inbox and Workspace Email Log Search for delivery. The automatic report still requires the scheduler cron described above.
+
+Google's [Gmail sending guide](https://developers.google.com/workspace/gmail/api/guides/sending), [service-account delegation guide](https://developers.google.com/identity/protocols/oauth2/service-account), and [messages.send reference](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/send) describe this flow. If Google rejects delegation, verify the numeric client ID, `gmail.send` scope, Gmail API enablement, and sender mailbox before retrying. Do not send the JSON key or OAuth tokens to support.
