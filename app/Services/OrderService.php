@@ -16,16 +16,17 @@ class OrderService
 {
     public function __construct(private InventoryService $inventory) {}
 
-    public function recordEventSale(string $name, string $amount): EventSale
+    public function recordEventSale(string $name, string $date, string $amount): EventSale
     {
         $cents = Money::cents($amount);
         if ($cents <= 0) {
             $this->fail('amount', 'Amount must be greater than zero.');
         }
 
-        return DB::transaction(function () use ($name, $cents) {
+        return DB::transaction(function () use ($name, $date, $cents) {
             $sale = EventSale::create([
                 'event_name' => trim($name),
+                'event_date' => $date,
                 'amount' => number_format($cents / 100, 2, '.', ''),
                 'recorded_by' => auth()->id(),
             ]);
@@ -34,7 +35,7 @@ class OrderService
                 'action' => 'create',
                 'module' => 'reports',
                 'record_id' => $sale->id,
-                'new_value' => json_encode(['event_name' => $sale->event_name, 'amount' => $sale->amount]),
+                'new_value' => json_encode(['event_name' => $sale->event_name, 'event_date' => $sale->event_date, 'amount' => $sale->amount]),
             ]);
             $audit->user_id = auth()->id();
             $audit->save();

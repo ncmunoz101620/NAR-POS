@@ -59,10 +59,10 @@ class ReportService
         }
         $query = EventSale::query();
         if (! empty($filters['from'])) {
-            $query->where('created_at', '>=', CarbonImmutable::parse($filters['from'], 'Asia/Manila')->startOfDay()->utc());
+            $query->where('event_date', '>=', $filters['from']);
         }
         if (! empty($filters['to'])) {
-            $query->where('created_at', '<', CarbonImmutable::parse($filters['to'], 'Asia/Manila')->addDay()->startOfDay()->utc());
+            $query->where('event_date', '<=', $filters['to']);
         }
 
         return $query;
@@ -104,7 +104,7 @@ class ReportService
     private function mergeEventDays(array $days, array $filters): array
     {
         $merged = collect($days)->keyBy('day');
-        foreach ($this->eventSales($filters)->selectRaw($this->dateSql().' as day, SUM(amount) as amount')->groupByRaw($this->dateSql())->get() as $event) {
+        foreach ($this->eventSales($filters)->selectRaw('event_date as day, SUM(amount) as amount')->groupBy('event_date')->get() as $event) {
             $row = $merged->get($event->day, ['day' => $event->day, 'orders' => 0, 'sales' => 0]);
             $row['sales'] = round($row['sales'] + (float) $event->amount, 2);
             $merged->put($event->day, $row);
@@ -120,8 +120,8 @@ class ReportService
         $eventQuery = $this->eventSales($filters);
         $eventSalesTotal = (float) (clone $eventQuery)->sum('amount');
         $eventSalesCount = (clone $eventQuery)->count();
-        $events = (clone $eventQuery)->orderByDesc('created_at')->limit(500)->get(['id', 'event_name', 'amount', 'created_at']);
-        $eventByDay = (clone $eventQuery)->selectRaw($this->dateSql().' as day, SUM(amount) as amount')->groupByRaw($this->dateSql())->get()->pluck('amount', 'day');
+        $events = (clone $eventQuery)->orderByDesc('event_date')->orderByDesc('created_at')->limit(500)->get(['id', 'event_name', 'event_date', 'amount', 'created_at']);
+        $eventByDay = (clone $eventQuery)->selectRaw('event_date as day, SUM(amount) as amount')->groupBy('event_date')->get()->pluck('amount', 'day');
         $daily = (clone $q)->selectRaw($this->dateSql()." as day, COUNT(*) as orders, SUM(total) as gross, SUM(discount) as discounts, SUM(CASE WHEN status='Refunded' THEN total ELSE 0 END) as refunds, SUM(CASE WHEN status='Cancelled' THEN 1 ELSE 0 END) as cancelled, SUM(CASE WHEN status='Cancelled' THEN total ELSE 0 END) as cancelled_amount")->groupByRaw($this->dateSql())->orderBy('day')->get()->mapWithKeys(fn ($r) => [$r->day => [$r->day, $r->orders, $this->money($r->gross + ($eventByDay[$r->day] ?? 0)), $this->money($r->discounts), $this->money($r->refunds), $r->cancelled, $this->money($r->cancelled_amount), $this->money($r->gross - $r->refunds - $r->cancelled_amount + ($eventByDay[$r->day] ?? 0)), $this->money($eventByDay[$r->day] ?? 0)]]);
         foreach ($eventByDay as $day => $amount) {
             if (! $daily->has($day)) {
@@ -170,6 +170,6 @@ class ReportService
             $payments->push(['Event sales', 0, $this->money($eventSalesTotal)]);
         }
 
-        return ['validCount' => (clone $valid)->count(), 'eventSalesTotal' => $eventSalesTotal, 'eventSalesCount' => $eventSalesCount, 'eventSales' => $events->map(fn ($event) => [$event->created_at->setTimezone('Asia/Manila')->format('Y-m-d g:i A'), $event->event_name, $this->money($event->amount)]), 'daily' => $daily, 'payments' => $payments, 'productSales' => $products, 'categorySales' => $categories, 'consumption' => $consumption, 'foodCost' => $costs, 'methods' => $this->orders([])->select('payment_method')->distinct()->pluck('payment_method')];
+        return ['validCount' => (clone $valid)->count(), 'eventSalesTotal' => $eventSalesTotal, 'eventSalesCount' => $eventSalesCount, 'eventSales' => $events->map(fn ($event) => [$event->event_date, $event->event_name, $event->created_at->setTimezone('Asia/Manila')->format('Y-m-d g:i A'), $this->money($event->amount)]), 'daily' => $daily, 'payments' => $payments, 'productSales' => $products, 'categorySales' => $categories, 'consumption' => $consumption, 'foodCost' => $costs, 'methods' => $this->orders([])->select('payment_method')->distinct()->pluck('payment_method')];
     }
 }

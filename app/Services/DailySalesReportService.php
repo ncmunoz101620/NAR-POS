@@ -47,7 +47,7 @@ class DailySalesReportService
         $valid = (clone $orders)->whereNotIn('status', ['Cancelled', 'Refunded']);
         $validIds = (clone $valid)->select('id');
         $totalSales = (float) (clone $valid)->sum('total');
-        $eventSales = (float) EventSale::where('created_at', '>=', $start->utc())->where('created_at', '<', $end->utc())->sum('amount');
+        $eventSales = (float) EventSale::where('event_date', $start->toDateString())->sum('amount');
         $orderCount = (clone $valid)->count();
         $itemsSold = (int) DB::table('order_items')->whereIn('order_id', $validIds)->sum('quantity');
 

@@ -56,20 +56,22 @@ class RestaurantTest extends TestCase
         $this->actingAs($this->staff());
         $inventoryBefore = InventoryTransaction::count();
         $auditBefore = \App\Models\AuditLog::count();
-        $this->postJson('/api/reports/event-sales', ['event_name' => 'Community Fair', 'amount' => '1234.56'])
-            ->assertCreated()->assertJsonPath('event_name', 'Community Fair')->assertJsonPath('amount', '1234.56');
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Community Fair', 'event_date' => '2026-10-06', 'amount' => '1234.56'])
+            ->assertCreated()->assertJsonPath('event_name', 'Community Fair')->assertJsonPath('event_date', '2026-10-06')->assertJsonPath('amount', '1234.56');
         $this->assertDatabaseCount('orders', 0);
         $this->assertDatabaseCount('inventory_transactions', $inventoryBefore);
         $this->assertDatabaseCount('audit_logs', $auditBefore + 1);
-        $this->getJson('/api/reports/dashboard')->assertOk()->assertJsonPath('sales', 1234.56)->assertJsonPath('eventSales', 1234.56)->assertJsonPath('netSales', 1234.56)->assertJsonPath('grossSales', 1234.56)->assertJsonPath('orderCount', 0);
-        $this->getJson('/api/reports/reports')->assertOk()->assertJsonPath('eventSalesTotal', 1234.56)->assertJsonCount(1, 'daily')->assertJsonPath('daily.0.1', 0);
+        $this->getJson('/api/reports/dashboard?from=2026-10-06&to=2026-10-06')->assertOk()->assertJsonPath('sales', 1234.56)->assertJsonPath('eventSales', 1234.56)->assertJsonPath('netSales', 1234.56)->assertJsonPath('grossSales', 1234.56)->assertJsonPath('orderCount', 0)->assertJsonPath('byDay.0.day', '2026-10-06');
+        $this->getJson('/api/reports/reports?from=2026-10-06&to=2026-10-06')->assertOk()->assertJsonPath('eventSalesTotal', 1234.56)->assertJsonPath('eventSales.0.0', '2026-10-06')->assertJsonCount(1, 'daily')->assertJsonPath('daily.0.0', '2026-10-06')->assertJsonPath('daily.0.1', 0);
+        $this->getJson('/api/reports/dashboard?from=2026-10-07&to=2026-10-07')->assertOk()->assertJsonPath('eventSales', 0);
         $this->getJson('/api/reports/dashboard?branch=NAR%20Commi')->assertOk()->assertJsonPath('eventSales', 0);
         $this->getJson('/api/reports/reports?method=Cash')->assertOk()->assertJsonPath('eventSalesTotal', 0);
-        $daily = app(\App\Services\DailySalesReportService::class)->dataForDate(\Carbon\CarbonImmutable::now('Asia/Manila'));
+        $daily = app(\App\Services\DailySalesReportService::class)->dataForDate(\Carbon\CarbonImmutable::parse('2026-10-06', 'Asia/Manila'));
         $this->assertEquals(1234.56, $daily['totalSales']);
         $this->assertEquals(1234.56, $daily['eventSales']);
         $this->assertSame(0, $daily['orderCount']);
         $this->assertSame(0, $daily['averageOrder']);
+        $this->assertEquals(0, app(\App\Services\DailySalesReportService::class)->dataForDate(\Carbon\CarbonImmutable::parse('2026-10-07', 'Asia/Manila'))['eventSales']);
         $sale = EventSale::firstOrFail();
         $this->expectException(\LogicException::class);
         $sale->update(['amount' => '1.00']);
@@ -77,13 +79,31 @@ class RestaurantTest extends TestCase
 
     public function test_event_sales_require_permissions_and_valid_amount(): void
     {
-        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'amount' => '25.00'])->assertUnauthorized();
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'event_date' => '2026-10-06', 'amount' => '25.00'])->assertUnauthorized();
         $this->actingAs($this->staff('ADMIN', 'NAR Commi'));
-        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'amount' => '25.00'])->assertForbidden();
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'event_date' => '2026-10-06', 'amount' => '25.00'])->assertForbidden();
         $this->actingAs($this->staff());
-        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'amount' => '0'])->assertUnprocessable();
-        $this->postJson('/api/reports/event-sales', ['event_name' => '', 'amount' => '2.123'])->assertUnprocessable();
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'amount' => '25.00'])->assertUnprocessable()->assertJsonValidationErrors('event_date');
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'event_date' => 'invalid', 'amount' => '25.00'])->assertUnprocessable()->assertJsonValidationErrors('event_date');
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'event_date' => '2026-10-06', 'amount' => '0'])->assertUnprocessable();
+        $this->postJson('/api/reports/event-sales', ['event_name' => '', 'event_date' => '2026-10-06', 'amount' => '2.123'])->assertUnprocessable();
         $this->assertDatabaseCount('event_sales', 0);
+    }
+
+    public function test_existing_event_sales_keep_their_manila_reporting_date_when_migrated(): void
+    {
+        $migration = require database_path('migrations/2026_11_04_000002_add_event_date_to_event_sales.php');
+        $migration->down();
+        DB::table('event_sales')->insert([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'event_name' => 'Prior event',
+            'amount' => '100.00',
+            'created_at' => '2026-10-06 18:30:00',
+            'updated_at' => '2026-10-06 18:30:00',
+        ]);
+        $migration->up();
+
+        $this->assertDatabaseHas('event_sales', ['event_name' => 'Prior event', 'event_date' => '2026-10-07']);
     }
 
     public function test_public_catalog_and_guest_checkout_recalculate_prices_and_tracking_is_private(): void

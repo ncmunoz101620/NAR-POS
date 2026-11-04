@@ -17,10 +17,11 @@ class ReportController extends Controller
         abort_unless(Access::profile($request->user())?->branch === 'All', 403, 'Event sales are available to all-branch staff only.');
         $data = $request->validate([
             'event_name' => 'required|string|max:255',
+            'event_date' => 'required|date_format:Y-m-d',
             'amount' => ['required', 'regex:/^\d{1,13}(\.\d{1,2})?$/', 'numeric', 'gt:0'],
         ]);
 
-        return response()->json($orders->recordEventSale($data['event_name'], (string) $data['amount']), 201);
+        return response()->json($orders->recordEventSale($data['event_name'], $data['event_date'], (string) $data['amount']), 201);
     }
 
     public function show(Request $request, string $type, ReportService $service)

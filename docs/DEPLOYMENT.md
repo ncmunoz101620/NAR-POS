@@ -21,6 +21,8 @@ The GoDaddy cPanel Git repository is checked out directly at `/home/khw2ft6zoaa3
 
 The only scheduled job is the daily sales report. It sends email synchronously through the selected Laravel mailer or Gmail API delivery mode; no queue worker is required. If queued email is introduced later, configure a supervised queue worker. Local public uploads use Laravel's public disk; private evidence uses the local private disk. For object storage, adapt those configured disks with the Flysystem S3 adapter and private-object delivery; do not expose the private disk publicly.
 
+The event-sales date migration assigns existing event entries the Manila calendar date of their recorded timestamp. New entries require an explicit event date, which determines their Dashboard, Reports, and daily email reporting day. Run `php artisan migrate --force` after deploying the code; do not refresh the production database.
+
 ## Google and email
 
 Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI to the registered `/auth/google/callback` URL. The provider must return a verified email. Leave Google credentials empty to use email/password login. The development `log` mailer writes verification codes and password setup/reset links to the local Laravel log; use a real mail transport and restrict log access in production.
