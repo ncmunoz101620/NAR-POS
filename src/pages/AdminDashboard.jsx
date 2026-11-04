@@ -17,7 +17,7 @@ const COLORS = ["#EE8720", "#581E12", "#F5C400", "#E45A82", "#E83934", "#7a4b3a"
 
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-function rangeFor(preset, custom) {
+function rangeFor(preset) {
   const now = new Date();
   const today = startOfDay(now);
   switch (preset) {
@@ -40,10 +40,7 @@ function rangeFor(preset, custom) {
     case "This Year":
       return [new Date(now.getFullYear(), 0, 1), new Date(today.getTime() + 86400000)];
     case "Custom":
-      return [
-        custom.from ? new Date(custom.from) : new Date(2000, 0, 1),
-        custom.to ? new Date(new Date(custom.to).getTime() + 86400000) : new Date(today.getTime() + 86400000),
-      ];
+      return [new Date(2000, 0, 1), new Date(today.getTime() + 86400000)];
     default:
       return [today, new Date(today.getTime() + 86400000)];
   }
@@ -56,10 +53,13 @@ export default function AdminDashboard() {
   const [report,setReport]=useState({});
   const [error,setError]=useState('');
   useEffect(()=>{
-    const [from,to]=rangeFor(preset,custom);
+    const [from,to]=rangeFor(preset);
     const fmt=d=>d.toLocaleDateString('en-CA');
+    const filters = preset === 'Custom'
+      ? {from:custom.from || fmt(from), to:custom.to || fmt(new Date(to.getTime()-1)), branch}
+      : {from:fmt(from), to:fmt(new Date(to.getTime()-1)), branch};
     let alive=true;
-    request('/reports/dashboard?'+new URLSearchParams({from:fmt(from),to:fmt(new Date(to.getTime()-1)),branch}))
+    request('/reports/dashboard?'+new URLSearchParams(filters))
       .then(r=>{if(alive){setReport(r);setError('');}}).catch(e=>{if(alive)setError(e.message);});
     return ()=>{alive=false;};
   },[preset,custom,branch]);
