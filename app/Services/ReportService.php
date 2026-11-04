@@ -84,8 +84,10 @@ class ReportService
         $valid = (clone $q)->whereNotIn('status', ['Cancelled', 'Refunded']);
         $count = (clone $valid)->count();
         $sales = (float) (clone $valid)->sum('total');
-        $eventSales = (float) $this->eventSales($filters)->sum('amount');
-        $discounts = (float) (clone $valid)->sum('discount');
+        $eventGross = (float) $this->eventSales($filters)->sum('gross_sales');
+        $eventDiscount = (float) $this->eventSales($filters)->sum('discount');
+        $eventSales = round($eventGross - $eventDiscount, 2);
+        $discounts = (float) (clone $valid)->sum('discount') + $eventDiscount;
         // Stored totals already include discounts, delivery fees and tax.
         $grossSales = round($sales + $eventSales + $discounts, 2);
         $groups = fn ($column) => (clone $q)->select($column.' as name')->selectRaw('COUNT(*) as value')->groupBy($column)->get()->toArray();
@@ -104,9 +106,9 @@ class ReportService
     private function mergeEventDays(array $days, array $filters): array
     {
         $merged = collect($days)->keyBy('day');
-        foreach ($this->eventSales($filters)->selectRaw('event_date as day, SUM(amount) as amount')->groupBy('event_date')->get() as $event) {
+        foreach ($this->eventSales($filters)->selectRaw('event_date as day, SUM(gross_sales - discount) as net_sales')->groupBy('event_date')->get() as $event) {
             $row = $merged->get($event->day, ['day' => $event->day, 'orders' => 0, 'sales' => 0]);
-            $row['sales'] = round($row['sales'] + (float) $event->amount, 2);
+            $row['sales'] = round($row['sales'] + (float) $event->net_sales, 2);
             $merged->put($event->day, $row);
         }
 
@@ -118,14 +120,24 @@ class ReportService
         $q = $this->orders($filters);
         $valid = (clone $q)->whereNotIn('status', ['Cancelled', 'Refunded']);
         $eventQuery = $this->eventSales($filters);
-        $eventSalesTotal = (float) (clone $eventQuery)->sum('amount');
+        $eventGrossTotal = (float) (clone $eventQuery)->sum('gross_sales');
+        $eventDiscountTotal = (float) (clone $eventQuery)->sum('discount');
+        $eventNetTotal = round($eventGrossTotal - $eventDiscountTotal, 2);
         $eventSalesCount = (clone $eventQuery)->count();
-        $events = (clone $eventQuery)->orderByDesc('event_date')->orderByDesc('created_at')->limit(500)->get(['id', 'event_name', 'event_date', 'amount', 'created_at']);
-        $eventByDay = (clone $eventQuery)->selectRaw('event_date as day, SUM(amount) as amount')->groupBy('event_date')->get()->pluck('amount', 'day');
-        $daily = (clone $q)->selectRaw($this->dateSql()." as day, COUNT(*) as orders, SUM(total) as gross, SUM(discount) as discounts, SUM(CASE WHEN status='Refunded' THEN total ELSE 0 END) as refunds, SUM(CASE WHEN status='Cancelled' THEN 1 ELSE 0 END) as cancelled, SUM(CASE WHEN status='Cancelled' THEN total ELSE 0 END) as cancelled_amount")->groupByRaw($this->dateSql())->orderBy('day')->get()->mapWithKeys(fn ($r) => [$r->day => [$r->day, $r->orders, $this->money($r->gross + ($eventByDay[$r->day] ?? 0)), $this->money($r->discounts), $this->money($r->refunds), $r->cancelled, $this->money($r->cancelled_amount), $this->money($r->gross - $r->refunds - $r->cancelled_amount + ($eventByDay[$r->day] ?? 0)), $this->money($eventByDay[$r->day] ?? 0)]]);
-        foreach ($eventByDay as $day => $amount) {
+        $events = (clone $eventQuery)->orderByDesc('event_date')->orderByDesc('created_at')->limit(500)->get(['id', 'event_name', 'event_date', 'gross_sales', 'discount', 'created_at']);
+        $eventByDay = (clone $eventQuery)->selectRaw('event_date as day, SUM(gross_sales) as gross, SUM(discount) as discounts')->groupBy('event_date')->get()->keyBy('day');
+        $daily = (clone $q)->selectRaw($this->dateSql()." as day, COUNT(*) as orders, SUM(total + discount) as gross, SUM(discount) as discounts, SUM(CASE WHEN status='Refunded' THEN total ELSE 0 END) as refunds, SUM(CASE WHEN status='Cancelled' THEN 1 ELSE 0 END) as cancelled, SUM(CASE WHEN status='Cancelled' THEN total ELSE 0 END) as cancelled_amount")->groupByRaw($this->dateSql())->orderBy('day')->get()->mapWithKeys(function ($r) use ($eventByDay) {
+            $event = $eventByDay->get($r->day);
+            $eventGross = (float) ($event?->gross ?? 0);
+            $eventDiscount = (float) ($event?->discounts ?? 0);
+            $net = (float) $r->gross - (float) $r->discounts - (float) $r->refunds - (float) $r->cancelled_amount + $eventGross - $eventDiscount;
+
+            return [$r->day => [$r->day, $r->orders, $this->money($r->gross + $eventGross), $this->money($r->discounts + $eventDiscount), $this->money($r->refunds), $r->cancelled, $this->money($r->cancelled_amount), $this->money($net), $this->money($eventGross - $eventDiscount)]];
+        });
+        foreach ($eventByDay as $day => $event) {
             if (! $daily->has($day)) {
-                $daily->put($day, [$day, 0, $this->money($amount), $this->money(0), $this->money(0), 0, $this->money(0), $this->money($amount), $this->money($amount)]);
+                $net = (float) $event->gross - (float) $event->discounts;
+                $daily->put($day, [$day, 0, $this->money($event->gross), $this->money($event->discounts), $this->money(0), 0, $this->money(0), $this->money($net), $this->money($net)]);
             }
         }
         $daily = $daily->sortKeys()->values();
@@ -167,9 +179,9 @@ class ReportService
         }
 
         if ($eventSalesCount > 0) {
-            $payments->push(['Event sales', 0, $this->money($eventSalesTotal)]);
+            $payments->push(['Event sales', 0, $this->money($eventNetTotal)]);
         }
 
-        return ['validCount' => (clone $valid)->count(), 'eventSalesTotal' => $eventSalesTotal, 'eventSalesCount' => $eventSalesCount, 'eventSales' => $events->map(fn ($event) => [$event->event_date, $event->event_name, $event->created_at->setTimezone('Asia/Manila')->format('Y-m-d g:i A'), $this->money($event->amount)]), 'daily' => $daily, 'payments' => $payments, 'productSales' => $products, 'categorySales' => $categories, 'consumption' => $consumption, 'foodCost' => $costs, 'methods' => $this->orders([])->select('payment_method')->distinct()->pluck('payment_method')];
+        return ['validCount' => (clone $valid)->count(), 'eventSalesTotal' => $eventNetTotal, 'eventGrossTotal' => $eventGrossTotal, 'eventDiscountTotal' => $eventDiscountTotal, 'eventNetTotal' => $eventNetTotal, 'eventSalesCount' => $eventSalesCount, 'eventSales' => $events->map(fn ($event) => [$event->event_date, $event->event_name, $event->created_at->setTimezone('Asia/Manila')->format('Y-m-d g:i A'), $this->money($event->gross_sales), $this->money($event->discount), $this->money((float) $event->gross_sales - (float) $event->discount)]), 'daily' => $daily, 'payments' => $payments, 'productSales' => $products, 'categorySales' => $categories, 'consumption' => $consumption, 'foodCost' => $costs, 'methods' => $this->orders([])->select('payment_method')->distinct()->pluck('payment_method')];
     }
 }

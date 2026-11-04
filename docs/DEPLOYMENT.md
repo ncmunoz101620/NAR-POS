@@ -22,6 +22,7 @@ The GoDaddy cPanel Git repository is checked out directly at `/home/khw2ft6zoaa3
 The only scheduled job is the daily sales report. It sends email synchronously through the selected Laravel mailer or Gmail API delivery mode; no queue worker is required. If queued email is introduced later, configure a supervised queue worker. Local public uploads use Laravel's public disk; private evidence uses the local private disk. For object storage, adapt those configured disks with the Flysystem S3 adapter and private-object delivery; do not expose the private disk publicly.
 
 The event-sales date migration assigns existing event entries the Manila calendar date of their recorded timestamp. New entries require an explicit event date, which determines their Dashboard, Reports, and daily email reporting day. Run `php artisan migrate --force` after deploying the code; do not refresh the production database.
+The event-sales discount migration renames existing amounts to gross sales and assigns a zero discount, preserving their net sales. New entries require both gross sales and a discount; net sales are computed from those values.
 
 ## Google and email
 

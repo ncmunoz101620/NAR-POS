@@ -4,7 +4,7 @@ namespace App\Models;
 
 class EventSale extends DomainModel
 {
-    protected $fillable = ['event_name', 'event_date', 'amount', 'recorded_by'];
+    protected $fillable = ['event_name', 'event_date', 'gross_sales', 'discount', 'recorded_by'];
 
     protected static function booted(): void
     {

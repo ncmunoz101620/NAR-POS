@@ -18,10 +18,20 @@ class ReportController extends Controller
         $data = $request->validate([
             'event_name' => 'required|string|max:255',
             'event_date' => 'required|date_format:Y-m-d',
-            'amount' => ['required', 'regex:/^\d{1,13}(\.\d{1,2})?$/', 'numeric', 'gt:0'],
+            'gross_sales' => ['required', 'regex:/^\d{1,13}(\.\d{1,2})?$/', 'numeric', 'gt:0'],
+            'discount' => ['required', 'regex:/^\d{1,13}(\.\d{1,2})?$/', 'numeric', 'gte:0'],
         ]);
 
-        return response()->json($orders->recordEventSale($data['event_name'], $data['event_date'], (string) $data['amount']), 201);
+        $sale = $orders->recordEventSale($data['event_name'], $data['event_date'], (string) $data['gross_sales'], (string) $data['discount']);
+
+        return response()->json([
+            'id' => $sale->id,
+            'event_name' => $sale->event_name,
+            'event_date' => $sale->event_date,
+            'gross_sales' => $sale->gross_sales,
+            'discount' => $sale->discount,
+            'net_sales' => number_format((\App\Services\Money::cents($sale->gross_sales) - \App\Services\Money::cents($sale->discount)) / 100, 2, '.', ''),
+        ], 201);
     }
 
     public function show(Request $request, string $type, ReportService $service)

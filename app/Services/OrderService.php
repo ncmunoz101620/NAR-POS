@@ -16,18 +16,23 @@ class OrderService
 {
     public function __construct(private InventoryService $inventory) {}
 
-    public function recordEventSale(string $name, string $date, string $amount): EventSale
+    public function recordEventSale(string $name, string $date, string $grossSales, string $discount): EventSale
     {
-        $cents = Money::cents($amount);
-        if ($cents <= 0) {
-            $this->fail('amount', 'Amount must be greater than zero.');
+        $grossCents = Money::cents($grossSales);
+        $discountCents = Money::cents($discount);
+        if ($grossCents <= 0) {
+            $this->fail('gross_sales', 'Gross sales must be greater than zero.');
+        }
+        if ($discountCents < 0 || $discountCents > $grossCents) {
+            $this->fail('discount', 'Discount cannot exceed gross sales.');
         }
 
-        return DB::transaction(function () use ($name, $date, $cents) {
+        return DB::transaction(function () use ($name, $date, $grossCents, $discountCents) {
             $sale = EventSale::create([
                 'event_name' => trim($name),
                 'event_date' => $date,
-                'amount' => number_format($cents / 100, 2, '.', ''),
+                'gross_sales' => number_format($grossCents / 100, 2, '.', ''),
+                'discount' => number_format($discountCents / 100, 2, '.', ''),
                 'recorded_by' => auth()->id(),
             ]);
             $audit = new AuditLog([
@@ -35,7 +40,7 @@ class OrderService
                 'action' => 'create',
                 'module' => 'reports',
                 'record_id' => $sale->id,
-                'new_value' => json_encode(['event_name' => $sale->event_name, 'event_date' => $sale->event_date, 'amount' => $sale->amount]),
+                'new_value' => json_encode(['event_name' => $sale->event_name, 'event_date' => $sale->event_date, 'gross_sales' => $sale->gross_sales, 'discount' => $sale->discount, 'net_sales' => number_format(($grossCents - $discountCents) / 100, 2, '.', '')]),
             ]);
             $audit->user_id = auth()->id();
             $audit->save();
