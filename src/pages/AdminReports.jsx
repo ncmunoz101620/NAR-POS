@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BranchFilter from "@/components/admin/BranchFilter";
+import { peso } from "@/lib/brand";
 
 import { exportReport, reportTotal } from "@/lib/reportExport";
 
-function Report({ title, headers, rows, canExport, totalColumn }) {
-  const total = totalColumn == null ? null : reportTotal(rows, totalColumn);
+function Report({ title, headers, rows, canExport, totalColumn, totalOverride }) {
+  const total = totalColumn == null ? null : totalOverride ?? reportTotal(rows, totalColumn);
   const totalRow = headers.map((_, i) => i === 0 ? "Total Amount" : i === totalColumn ? total : "");
   const exportRows = total === null ? rows : [...rows, totalRow];
   return (
@@ -57,8 +58,18 @@ export default function AdminReports() {
   const [from,setFrom]=useState(new Date(Date.now()-29*86400000).toLocaleDateString('en-CA'));
   const [to,setTo]=useState(todayStr),[method,setMethod]=useState('all'),[branch,setBranch]=useState('all');
   const [report,setReport]=useState({}),[error,setError]=useState('');
-  useEffect(()=>{let alive=true;request('/reports/reports?'+new URLSearchParams({from,to,method,branch})).then(r=>{if(alive){setReport(r);setError('');}}).catch(e=>{if(alive)setError(e.message);});return ()=>{alive=false;};},[from,to,method,branch]);
-  const {daily=[],payments=[],productSales=[],categorySales=[],consumption=[],foodCost=[],methods=[]}=report;
+  const [eventName,setEventName]=useState(''),[eventAmount,setEventAmount]=useState(''),[saving,setSaving]=useState(false),[refresh,setRefresh]=useState(0);
+  useEffect(()=>{let alive=true;request('/reports/reports?'+new URLSearchParams({from,to,method,branch})).then(r=>{if(alive){setReport(r);setError('');}}).catch(e=>{if(alive)setError(e.message);});return ()=>{alive=false;};},[from,to,method,branch,refresh]);
+  const {daily=[],payments=[],productSales=[],categorySales=[],consumption=[],foodCost=[],methods=[],eventSales=[],eventSalesTotal=0,eventSalesCount=0}=report;
+  async function saveEvent(event) {
+    event.preventDefault();
+    setSaving(true); setError('');
+    try {
+      await request('/reports/event-sales', 'POST', {event_name:eventName.trim(), amount:eventAmount});
+      setEventName(''); setEventAmount(''); setRefresh((n)=>n+1);
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  }
   return (
     <ModuleGuard module="reports">
       {(session) => (
@@ -81,14 +92,29 @@ export default function AdminReports() {
             <TabsList className="bg-white border border-[#F0DFD0] flex-wrap h-auto">
               <TabsTrigger value="sales">Daily Sales</TabsTrigger>
               <TabsTrigger value="payments">Payment Summary</TabsTrigger>
+              <TabsTrigger value="events">Event Sales</TabsTrigger>
               <TabsTrigger value="products">Product Sales</TabsTrigger>
               <TabsTrigger value="categories">Category Sales</TabsTrigger>
               <TabsTrigger value="inventory">Inventory Consumption</TabsTrigger>
               <TabsTrigger value="foodcost">Food Cost</TabsTrigger>
             </TabsList>
             <div className="mt-4">
-              <TabsContent value="sales"><Report title="Daily Sales Report" headers={["Date", "Orders", "Gross Sales", "Discounts", "Refunds", "Cancelled", "Cancelled Amount", "Net Sales"]} rows={daily} canExport={session.can("reports", "export")} /></TabsContent>
+              <TabsContent value="sales"><Report title="Daily Sales Report" headers={["Date", "Orders", "Gross Sales", "Discounts", "Refunds", "Cancelled", "Cancelled Amount", "Net Sales", "Event Sales"]} rows={daily} canExport={session.can("reports", "export")} /></TabsContent>
               <TabsContent value="payments"><Report title="Payment Summary" headers={["Payment Method", "Orders", "Amount"]} rows={payments} totalColumn={2} canExport={session.can("reports", "export")} /></TabsContent>
+              <TabsContent value="events">
+                <div className="mb-4 bg-white rounded-2xl border border-[#F0DFD0] p-5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[#7a4b3a]/70">Event Sales</p>
+                  <p className="mt-2 text-2xl font-extrabold text-[#581E12]">{peso(eventSalesTotal)}</p>
+                  <p className="mt-1 text-xs text-[#7a4b3a]">Included in overall sales when all branches and payment methods are selected. Recorded on the entry date.</p>
+                  {eventSalesCount > 500 && <p className="mt-1 text-xs text-[#7a4b3a]">Showing the latest 500 entries in this range; the total includes all {eventSalesCount} entries.</p>}
+                </div>
+                {session.can('reports','create') && session.appUser?.branch === 'All' && <form onSubmit={saveEvent} className="mb-4 flex flex-wrap items-end gap-3 bg-white rounded-2xl border border-[#F0DFD0] p-5">
+                  <label className="text-sm font-semibold text-[#581E12]">Event Name<Input required maxLength={255} value={eventName} onChange={(e)=>setEventName(e.target.value)} className="mt-1 bg-white border-[#F0DFD0]" /></label>
+                  <label className="text-sm font-semibold text-[#581E12]">Amount<Input required type="number" min="0.01" max="9999999999999.99" step="0.01" value={eventAmount} onChange={(e)=>setEventAmount(e.target.value)} className="mt-1 bg-white border-[#F0DFD0]" /></label>
+                  <button disabled={saving} className="rounded-full bg-[#EE8720] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? 'Saving…' : 'Record Event Sale'}</button>
+                </form>}
+                <Report title="Event Sales" headers={["Recorded", "Event Name", "Amount"]} rows={eventSales} totalColumn={2} totalOverride={peso(eventSalesTotal)} canExport={session.can("reports", "export") && eventSalesCount <= 500} />
+              </TabsContent>
               <TabsContent value="products"><Report title="Product Sales Report" headers={["Product", "Variant", "Qty Sold", "Revenue"]} rows={productSales} totalColumn={3} canExport={session.can("reports", "export")} /></TabsContent>
               <TabsContent value="categories"><Report title="Category Sales Report" headers={["Category", "Qty Sold", "Revenue"]} rows={categorySales} totalColumn={2} canExport={session.can("reports", "export")} /></TabsContent>
               <TabsContent value="inventory"><Report title="Inventory Consumption Report" headers={["Ingredient", "Beginning", "Stock In", "Consumption", "Waste", "Adjustment", "Ending"]} rows={consumption} canExport={session.can("reports", "export")} /></TabsContent>

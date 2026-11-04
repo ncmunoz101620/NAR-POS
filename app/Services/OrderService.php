@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Models\EventSale;
+use App\Models\AuditLog;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Setting;
@@ -13,6 +15,33 @@ use Illuminate\Validation\ValidationException;
 class OrderService
 {
     public function __construct(private InventoryService $inventory) {}
+
+    public function recordEventSale(string $name, string $amount): EventSale
+    {
+        $cents = Money::cents($amount);
+        if ($cents <= 0) {
+            $this->fail('amount', 'Amount must be greater than zero.');
+        }
+
+        return DB::transaction(function () use ($name, $cents) {
+            $sale = EventSale::create([
+                'event_name' => trim($name),
+                'amount' => number_format($cents / 100, 2, '.', ''),
+                'recorded_by' => auth()->id(),
+            ]);
+            $audit = new AuditLog([
+                'user_name' => auth()->user()?->name,
+                'action' => 'create',
+                'module' => 'reports',
+                'record_id' => $sale->id,
+                'new_value' => json_encode(['event_name' => $sale->event_name, 'amount' => $sale->amount]),
+            ]);
+            $audit->user_id = auth()->id();
+            $audit->save();
+
+            return $sale;
+        });
+    }
 
     private function fail(string $key, string $message): never
     {

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AppUser;
+use App\Models\EventSale;
 use App\Models\Ingredient;
 use App\Models\InventoryTransaction;
 use App\Models\Product;
@@ -48,6 +49,41 @@ class RestaurantTest extends TestCase
         $p = Product::first();
 
         return array_replace(['branch' => 'NAR Commi', 'customer_name' => 'Customer', 'customer_phone' => '09170000000', 'order_type' => 'Pick-up', 'payment_method' => 'Cash', 'items' => [['product_id' => $p->id, 'variant_name' => 'Regular', 'quantity' => 2, 'unit_price' => 1, 'subtotal' => 1, 'modifiers' => []]], 'total' => 1, 'subtotal' => 1], $override);
+    }
+
+    public function test_event_sales_add_to_overall_totals_without_affecting_orders_or_branch_filtered_sales(): void
+    {
+        $this->actingAs($this->staff());
+        $inventoryBefore = InventoryTransaction::count();
+        $auditBefore = \App\Models\AuditLog::count();
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Community Fair', 'amount' => '1234.56'])
+            ->assertCreated()->assertJsonPath('event_name', 'Community Fair')->assertJsonPath('amount', '1234.56');
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseCount('inventory_transactions', $inventoryBefore);
+        $this->assertDatabaseCount('audit_logs', $auditBefore + 1);
+        $this->getJson('/api/reports/dashboard')->assertOk()->assertJsonPath('sales', 1234.56)->assertJsonPath('eventSales', 1234.56)->assertJsonPath('netSales', 1234.56)->assertJsonPath('grossSales', 1234.56)->assertJsonPath('orderCount', 0);
+        $this->getJson('/api/reports/reports')->assertOk()->assertJsonPath('eventSalesTotal', 1234.56)->assertJsonCount(1, 'daily')->assertJsonPath('daily.0.1', 0);
+        $this->getJson('/api/reports/dashboard?branch=NAR%20Commi')->assertOk()->assertJsonPath('eventSales', 0);
+        $this->getJson('/api/reports/reports?method=Cash')->assertOk()->assertJsonPath('eventSalesTotal', 0);
+        $daily = app(\App\Services\DailySalesReportService::class)->dataForDate(\Carbon\CarbonImmutable::now('Asia/Manila'));
+        $this->assertEquals(1234.56, $daily['totalSales']);
+        $this->assertEquals(1234.56, $daily['eventSales']);
+        $this->assertSame(0, $daily['orderCount']);
+        $this->assertSame(0, $daily['averageOrder']);
+        $sale = EventSale::firstOrFail();
+        $this->expectException(\LogicException::class);
+        $sale->update(['amount' => '1.00']);
+    }
+
+    public function test_event_sales_require_permissions_and_valid_amount(): void
+    {
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'amount' => '25.00'])->assertUnauthorized();
+        $this->actingAs($this->staff('ADMIN', 'NAR Commi'));
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'amount' => '25.00'])->assertForbidden();
+        $this->actingAs($this->staff());
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'amount' => '0'])->assertUnprocessable();
+        $this->postJson('/api/reports/event-sales', ['event_name' => '', 'amount' => '2.123'])->assertUnprocessable();
+        $this->assertDatabaseCount('event_sales', 0);
     }
 
     public function test_public_catalog_and_guest_checkout_recalculate_prices_and_tracking_is_private(): void

@@ -42,6 +42,7 @@ Route::prefix('api')->group(function () {
         Route::get('/uploads/{name}', [UploadController::class, 'show']);
         Route::post('/reports/daily-sales/test', [ReportController::class, 'sendDailySalesTest']);
         Route::get('/reports/gmail/status', [GmailReportConnectionController::class, 'status']);
+        Route::post('/reports/event-sales', [ReportController::class, 'storeEventSale']);
         Route::get('/reports/{type}', [ReportController::class, 'show']);
         Route::post('/entities/{entity}', [EntityController::class, 'store']);
         Route::patch('/entities/{entity}/{id}', [EntityController::class, 'update']);

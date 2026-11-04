@@ -5,11 +5,24 @@ namespace App\Http\Controllers;
 use App\Services\Access;
 use App\Services\DailySalesReportService;
 use App\Services\ReportService;
+use App\Services\OrderService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
+    public function storeEventSale(Request $request, OrderService $orders)
+    {
+        Access::require('reports', 'create');
+        abort_unless(Access::profile($request->user())?->branch === 'All', 403, 'Event sales are available to all-branch staff only.');
+        $data = $request->validate([
+            'event_name' => 'required|string|max:255',
+            'amount' => ['required', 'regex:/^\d{1,13}(\.\d{1,2})?$/', 'numeric', 'gt:0'],
+        ]);
+
+        return response()->json($orders->recordEventSale($data['event_name'], (string) $data['amount']), 201);
+    }
+
     public function show(Request $request, string $type, ReportService $service)
     {
         abort_unless(in_array($type, ['dashboard', 'reports', 'inventorySummary']), 404);

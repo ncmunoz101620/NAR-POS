@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Models\EventSale;
 use App\Models\Setting;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -46,13 +47,16 @@ class DailySalesReportService
         $valid = (clone $orders)->whereNotIn('status', ['Cancelled', 'Refunded']);
         $validIds = (clone $valid)->select('id');
         $totalSales = (float) (clone $valid)->sum('total');
+        $eventSales = (float) EventSale::where('created_at', '>=', $start->utc())->where('created_at', '<', $end->utc())->sum('amount');
         $orderCount = (clone $valid)->count();
         $itemsSold = (int) DB::table('order_items')->whereIn('order_id', $validIds)->sum('quantity');
 
         return [
             'date' => $start,
             'restaurant' => Setting::first()?->restaurant_name ?: 'Nanay Asa Restaurant',
-            'totalSales' => $totalSales,
+            'totalSales' => $totalSales + $eventSales,
+            'orderSales' => $totalSales,
+            'eventSales' => $eventSales,
             'orderCount' => $orderCount,
             'itemsSold' => $itemsSold,
             'averageOrder' => $orderCount ? $totalSales / $orderCount : 0,
@@ -146,6 +150,8 @@ class DailySalesReportService
         $productRows = count($data['topProducts'])
             ? collect($data['topProducts'])->map(fn ($row) => '<tr><td>'.e($row['label']).'</td><td style="text-align:right"><strong>'.e($row['count']).' sold</strong> &middot; '.$money($row['amount']).'</td></tr>')->implode('')
             : '<tr><td colspan="2" style="color:#9b6a57">No product sales recorded.</td></tr>';
+        $orderSales = $money($data['orderSales'] ?? $data['totalSales']);
+        $eventSales = $money($data['eventSales'] ?? 0);
 
         return <<<HTML
 <!doctype html>
@@ -164,12 +170,14 @@ class DailySalesReportService
         <div style="border:1px solid #f0dfd0;border-radius:12px;padding:16px;text-align:center"><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9b6a57">Items Sold</div><strong style="display:block;margin-top:8px;font-size:20px;color:#ee8720">{$number($data['itemsSold'])}</strong></div>
         <div style="border:1px solid #f0dfd0;border-radius:12px;padding:16px;text-align:center"><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9b6a57">Avg. Order</div><strong style="display:block;margin-top:8px;font-size:20px">{$money($data['averageOrder'])}</strong></div>
       </div>
+      <h2 style="font-size:16px;margin:24px 0 8px">Sales Sources</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td>Order sales</td><td style="text-align:right">{$orderSales}</td></tr><tr><td>Event sales</td><td style="text-align:right">{$eventSales}</td></tr></table>
       <h2 style="font-size:16px;margin:24px 0 8px">Sales by Branch</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">{$rows($data['salesByBranch'])}<tr><td style="border-top:2px solid #f0dfd0;padding:10px 8px">Total</td><td style="border-top:2px solid #f0dfd0;padding:10px 8px;text-align:right"><strong>{$money($data['totalSales'])}</strong></td></tr></table>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">{$rows($data['salesByBranch'])}<tr><td style="border-top:2px solid #f0dfd0;padding:10px 8px">Order sales total</td><td style="border-top:2px solid #f0dfd0;padding:10px 8px;text-align:right"><strong>{$orderSales}</strong></td></tr></table>
       <h2 style="font-size:16px;margin:28px 0 8px">Sales by Order Type</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">{$rows($data['salesByOrderType'])}<tr><td style="border-top:2px solid #f0dfd0;padding:10px 8px">Total</td><td style="border-top:2px solid #f0dfd0;padding:10px 8px;text-align:right"><strong>{$money($data['totalSales'])}</strong></td></tr></table>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">{$rows($data['salesByOrderType'])}<tr><td style="border-top:2px solid #f0dfd0;padding:10px 8px">Order sales total</td><td style="border-top:2px solid #f0dfd0;padding:10px 8px;text-align:right"><strong>{$orderSales}</strong></td></tr></table>
       <h2 style="font-size:16px;margin:28px 0 8px">Sales by Payment Method</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">{$rows($data['salesByPaymentMethod'])}<tr><td style="border-top:2px solid #f0dfd0;padding:10px 8px">Total</td><td style="border-top:2px solid #f0dfd0;padding:10px 8px;text-align:right"><strong>{$money($data['totalSales'])}</strong></td></tr></table>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">{$rows($data['salesByPaymentMethod'])}<tr><td style="border-top:2px solid #f0dfd0;padding:10px 8px">Order sales total</td><td style="border-top:2px solid #f0dfd0;padding:10px 8px;text-align:right"><strong>{$orderSales}</strong></td></tr></table>
       <h2 style="font-size:16px;margin:28px 0 8px">Top Products</h2>
       <table style="width:100%;border-collapse:collapse;font-size:14px">{$productRows}</table>
       <p style="margin:28px 0 0;text-align:center;color:#9b6a57;font-size:12px;font-style:italic">Generated automatically by Nanay Asa Restaurant · Nanay Asa POS</p>
