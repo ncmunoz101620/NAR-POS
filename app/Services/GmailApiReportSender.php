@@ -24,10 +24,14 @@ class GmailApiReportSender
 
         $message = (new Email)
             ->from(new Address($sender, (string) config('mail.from.name', 'Nanay Asa Restaurant')))
-            ->to(...$recipients)
+            ->to($sender)
+            ->bcc(...array_values(array_filter($recipients, fn ($email) => strcasecmp($email, $sender) !== 0)))
             ->subject($subject)
             ->html($html);
-        $raw = rtrim(strtr(base64_encode($message->toString()), '+/', '-_'), '=');
+        // Symfony strips Bcc when serializing for SMTP; Gmail API needs it in the raw MIME to route blind copies.
+        $bccHeader = $message->getHeaders()->get('Bcc');
+        $mime = ($bccHeader ? $bccHeader->toString()."\r\n" : '').$message->toString();
+        $raw = rtrim(strtr(base64_encode($mime), '+/', '-_'), '=');
 
         try {
             $token = config('services.gmail_reports.delivery') === 'gmail_oauth'

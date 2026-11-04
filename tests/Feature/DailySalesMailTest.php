@@ -35,9 +35,18 @@ class DailySalesMailTest extends TestCase
 
     public function test_delivery_submission_returns_recipient_count(): void
     {
-        config(['mail.default' => 'smtp']);
-        Mail::shouldReceive('html')->once()->andReturn(\Mockery::mock(SentMessage::class));
-        $this->assertSame(1, app(DailySalesReportService::class)->sendForDate(CarbonImmutable::now(), ['recipient@example.com']));
+        config(['mail.default' => 'smtp', 'mail.from.address' => 'sender@example.com']);
+        Mail::shouldReceive('html')->once()->withArgs(function ($html, $callback) {
+            $email = new \Symfony\Component\Mime\Email();
+            $callback(new \Illuminate\Mail\Message($email));
+
+            $this->assertSame(['sender@example.com'], array_map(fn ($address) => $address->getAddress(), $email->getTo()));
+            $this->assertSame(['first@example.com', 'second@example.com'], array_map(fn ($address) => $address->getAddress(), $email->getBcc()));
+            $this->assertSame([], $email->getCc());
+
+            return true;
+        })->andReturn(\Mockery::mock(SentMessage::class));
+        $this->assertSame(2, app(DailySalesReportService::class)->sendForDate(CarbonImmutable::now(), ['first@example.com', 'second@example.com']));
     }
 
     public function test_transport_failure_has_a_safe_error_instead_of_success(): void
@@ -73,13 +82,17 @@ class DailySalesMailTest extends TestCase
             Mail::shouldReceive('html')->never();
             Http::fake(['gmail.googleapis.com/*' => Http::response(['id' => 'gmail-message-id'], 200)]);
 
-            $this->assertSame(1, app(DailySalesReportService::class)->sendForDate(CarbonImmutable::parse('2026-10-20', 'Asia/Manila'), ['recipient@example.com']));
+            $this->assertSame(2, app(DailySalesReportService::class)->sendForDate(CarbonImmutable::parse('2026-10-20', 'Asia/Manila'), ['recipient@example.com', 'another@example.com']));
             Http::assertSent(function ($request) {
                 $mime = base64_decode(strtr($request['raw'], '-_', '+/'));
+                $headers = strstr($mime, "\r\n\r\n", true);
 
                 return $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
                     && $request->hasHeader('Authorization', 'Bearer test-token')
-                    && str_contains($mime, 'recipient@example.com')
+                    && str_contains($headers, 'To: main@nanayasa.ph')
+                    && str_contains($headers, 'Bcc: recipient@example.com, another@example.com')
+                    && ! str_contains($headers, 'To: recipient@example.com')
+                    && ! str_contains($headers, 'To: another@example.com')
                     && str_contains($mime, 'main@nanayasa.ph')
                     && str_contains($mime, 'Daily Sales Report')
                     && str_contains($mime, '<html>');

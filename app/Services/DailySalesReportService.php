@@ -102,7 +102,8 @@ class DailySalesReportService
 
         try {
             $sent = Mail::html($html, function ($message) use ($recipients, $subject) {
-                $message->to($recipients)->subject($subject);
+                $sender = (string) config('mail.from.address');
+                $message->to($sender)->bcc(array_values(array_filter($recipients, fn ($email) => strcasecmp($email, $sender) !== 0)))->subject($subject);
             });
         } catch (TransportExceptionInterface $exception) {
             throw ValidationException::withMessages(['mail' => 'The mail provider could not accept the report. Check the outgoing mail settings and provider delivery logs before retrying.']);

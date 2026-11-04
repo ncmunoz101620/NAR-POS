@@ -84,6 +84,8 @@ Customer entry redirects: /admin and /login on CUSTOMER_HOST (default nanayasa.p
 
 Daily reports require a delivery mailer. The log/array transports only record messages; reports reject these, including fallback chains containing them. A submitted report means the transport accepted it, not that it reached each inbox. Transport failures return a safe error rather than provider diagnostics that may contain private details.
 
+Report emails address the configured sender in `To` and place report recipients in `Bcc`, so recipients cannot see the distribution list. The sender receives a copy when it is not also on the recipient list.
+
 For a Google Workspace mailbox with app passwords permitted, enable 2-Step Verification and create a dedicated app password. Configure production privately (never commit credentials):
 
 ```dotenv
