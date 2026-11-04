@@ -63,7 +63,7 @@ export default function AdminDashboard() {
       .then(r=>{if(alive){setReport(r);setError('');}}).catch(e=>{if(alive)setError(e.message);});
     return ()=>{alive=false;};
   },[preset,custom,branch]);
-  const {grossSales=0,discounts=0,netSales=0,eventSales=0,avg=0,byDay=[],byStatus=[],bySource=[],byPayment=[],lowStock=[]}=report;
+  const {grossSales=0,discounts=0,netSales=0,avg=0,byDay=[],byStatus=[],bySource=[],byPayment=[],lowStock=[]}=report;
   return (
     <ModuleGuard module="dashboard">
       {error && <p role="alert" className="text-red-700">{error}</p>}
@@ -95,7 +95,6 @@ export default function AdminDashboard() {
         <StatCard label="Gross Sales" value={peso(grossSales)} icon={Banknote} tone="orange" hint={`${preset}`} />
         <StatCard label="Discounts" value={peso(discounts)} icon={TrendingUp} tone="gold" />
         <StatCard label="Net Sales" value={peso(netSales)} icon={Banknote} tone="brown" />
-        <StatCard label="Event Sales" value={peso(eventSales)} icon={TrendingUp} tone="green" />
         <StatCard label="Orders" value={report.orderCount || 0} icon={ReceiptText} tone="brown" />
         <StatCard label="Pending" value={byStatus.find(s=>s.name==='Pending')?.value || 0} icon={Clock} tone="gold" />
         <StatCard label="Completed" value={byStatus.find(s=>s.name==='Completed')?.value || 0} icon={CheckCircle2} tone="green" />
