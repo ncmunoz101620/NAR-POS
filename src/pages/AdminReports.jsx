@@ -65,7 +65,7 @@ export default function AdminReports() {
   const [report,setReport]=useState({}),[error,setError]=useState('');
   const [eventName,setEventName]=useState(''),[eventDate,setEventDate]=useState(manilaToday),[eventGross,setEventGross]=useState(''),[eventDiscount,setEventDiscount]=useState('0'),[saving,setSaving]=useState(false),[refresh,setRefresh]=useState(0),[saved,setSaved]=useState('');
   useEffect(()=>{let alive=true;request('/reports/reports?'+new URLSearchParams({from,to,method,branch})).then(r=>{if(alive){setReport(r);setError('');}}).catch(e=>{if(alive)setError(e.message);});return ()=>{alive=false;};},[from,to,method,branch,refresh]);
-  const {daily=[],payments=[],productSales=[],categorySales=[],consumption=[],foodCost=[],methods=[],eventSales=[],eventGrossTotal=0,eventDiscountTotal=0,eventNetTotal=0,eventSalesCount=0}=report;
+  const {daily=[],dailyTotals, payments=[],productSales=[],categorySales=[],consumption=[],foodCost=[],methods=[],eventSales=[],eventGrossTotal=0,eventDiscountTotal=0,eventNetTotal=0,eventSalesCount=0}=report;
   async function saveEvent(event) {
     event.preventDefault();
     setSaving(true); setError(''); setSaved('');
@@ -105,7 +105,17 @@ export default function AdminReports() {
               <TabsTrigger value="foodcost">Food Cost</TabsTrigger>
             </TabsList>
             <div className="mt-4">
-              <TabsContent value="sales"><Report title="Daily Sales Report" headers={["Date", "Orders", "Gross Sales", "Discounts", "Refunds", "Cancelled", "Cancelled Amount", "Net Sales", "Event Sales"]} rows={daily} canExport={session.can("reports", "export")} /></TabsContent>
+              <TabsContent value="sales">
+                {dailyTotals && <div className="mb-4 grid gap-4 sm:grid-cols-3">
+                  {[["Combined Gross Sales", dailyTotals[2]], ["Total Discounts", dailyTotals[3]], ["Combined Net Sales", dailyTotals[7]]].map(([label, value]) => (
+                    <div key={label} className="bg-white rounded-2xl border border-[#F0DFD0] p-5">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#7a4b3a]/70">{label}</p>
+                      <p className="mt-2 text-2xl font-extrabold text-[#581E12]">{value}</p>
+                    </div>
+                  ))}
+                </div>}
+                <Report title="Daily Sales Report" headers={["Date", "Orders", "Gross Sales", "Discounts", "Refunds", "Cancelled", "Cancelled Amount", "Net Sales", "Event Sales"]} rows={daily} footerRow={dailyTotals} canExport={session.can("reports", "export")} />
+              </TabsContent>
               <TabsContent value="payments"><Report title="Payment Summary" headers={["Payment Method", "Orders", "Amount"]} rows={payments} totalColumn={2} canExport={session.can("reports", "export")} /></TabsContent>
               <TabsContent value="events">
                 <div className="mb-4 grid gap-4 sm:grid-cols-3">

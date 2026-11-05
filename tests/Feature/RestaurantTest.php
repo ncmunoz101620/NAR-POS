@@ -113,6 +113,32 @@ class RestaurantTest extends TestCase
         $this->assertDatabaseHas('event_sales', ['event_name' => 'Prior event', 'event_date' => '2026-10-07', 'gross_sales' => '100.00', 'discount' => '0.00']);
     }
 
+    public function test_daily_report_totals_match_dashboard_with_event_sales_and_cancellation(): void
+    {
+        $this->actingAs($this->staff());
+        $date = \Carbon\CarbonImmutable::now('Asia/Manila')->toDateString();
+        $this->postJson('/api/orders', $this->order(['source' => 'Manual']))->assertOk();
+        $cancelled = $this->postJson('/api/orders', $this->order(['source' => 'Manual']))->assertOk()->json();
+        $this->patchJson('/api/orders/'.$cancelled['id'], ['status' => 'Cancelled', 'reason' => 'Customer cancellation'])->assertOk();
+        $this->postJson('/api/reports/event-sales', ['event_name' => 'Market Day', 'event_date' => $date, 'gross_sales' => '100.00', 'discount' => '10.00'])->assertCreated();
+
+        $query = '?from='.$date.'&to='.$date.'&branch=all';
+        $dashboard = $this->getJson('/api/reports/dashboard'.$query)->assertOk()->json();
+        $reports = $this->getJson('/api/reports/reports'.$query)->assertOk()->json();
+        $money = fn ($value) => '₱'.number_format($value, 2);
+
+        $this->assertSame(1, $dashboard['validCount']);
+        $this->assertSame(2, $dashboard['orderCount']);
+        $this->assertSame(2, $reports['dailyTotals'][1]);
+        $this->assertSame($money($dashboard['grossSales']), $reports['dailyTotals'][2]);
+        $this->assertSame($money($dashboard['discounts']), $reports['dailyTotals'][3]);
+        $this->assertSame($money($dashboard['netSales']), $reports['dailyTotals'][7]);
+        $this->assertSame('₱90.00', $reports['dailyTotals'][8]);
+        $this->assertSame(1, $reports['dailyTotals'][5]);
+        $this->assertSame($reports['dailyTotals'][2], $reports['daily'][0][2]);
+        $this->assertSame($reports['dailyTotals'][7], $reports['daily'][0][7]);
+    }
+
     public function test_public_catalog_and_guest_checkout_recalculate_prices_and_tracking_is_private(): void
     {
         $this->getJson('/api/entities/Product')->assertOk()->assertJsonCount(1);
