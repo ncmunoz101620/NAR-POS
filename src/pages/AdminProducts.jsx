@@ -174,7 +174,10 @@ function ProductDialog({ form, setForm, categories, onSave }) {
 
   return (
     <Dialog open onOpenChange={() => setForm(null)}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={!form.id ? (event) => event.preventDefault() : undefined}
+      >
         <DialogHeader><DialogTitle className="text-[#581E12]">{form.id ? "Edit product" : "New product"}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
           <div><Label>Name *</Label><Input value={form.name} onChange={(e) => set("name", e.target.value)} className="mt-1.5" /></div>
