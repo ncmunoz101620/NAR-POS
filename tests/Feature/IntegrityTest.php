@@ -101,6 +101,10 @@ class IntegrityTest extends TestCase
         $this->assertDatabaseHas('recipes', ['product_id' => $product->id, 'variant_name' => $variant->name]);
         $this->postJson('/api/entities/Recipe', [...$payload, 'variant_id' => $otherVariant->id])
             ->assertUnprocessable()->assertJsonValidationErrors('variant_id');
+        $legacyPayload = $payload;
+        unset($legacyPayload['variant_id']);
+        $this->postJson('/api/entities/Recipe', [...$legacyPayload, 'variant_name' => 'Unknown size'])
+            ->assertUnprocessable()->assertJsonValidationErrors('variant_name');
         $this->assertDatabaseCount('recipes', 2);
     }
 

@@ -87,12 +87,13 @@ class EntityService
             if (in_array($entity, ['Ingredient', 'RawMaterial'])) {
                 unset($data['current_stock']);
             }
+            $selectedVariant = null;
             if ($entity === 'Recipe' && isset($data['variant_id'])) {
-                $variant = ProductVariant::where('product_id', $data['product_id'] ?? $row->product_id)->find($data['variant_id']);
-                if (! $variant) {
+                $selectedVariant = ProductVariant::where('product_id', $data['product_id'] ?? $row->product_id)->find($data['variant_id']);
+                if (! $selectedVariant) {
                     throw ValidationException::withMessages(['variant_id' => 'This product size is no longer available. Refresh the page and try again.']);
                 }
-                $data['variant_name'] = $variant->name;
+                $data['variant_name'] = $selectedVariant->name;
                 unset($data['variant_id']);
             }
             $row->fill($data);
@@ -126,8 +127,8 @@ class EntityService
                 }
             }
             if ($entity === 'Recipe') {
-                if (! Product::findOrFail($row->product_id)->variants->contains('name', $row->variant_name)) {
-                    throw ValidationException::withMessages(['variant_name' => 'Unknown product variant.']);
+                if (! $selectedVariant && ! ProductVariant::where('product_id', $row->product_id)->where('name', $row->variant_name)->exists()) {
+                    throw ValidationException::withMessages(['variant_name' => 'Product size was not found. Refresh the page and try again.']);
                 }
                 if (isset($data['items'])) {
                     $row->items()->delete();
