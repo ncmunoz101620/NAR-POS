@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 
+const recipeNameKey = (name) => (name || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+
 export default function AdminRecipes() {
   const { toast } = useToast();
   const [products, setProducts] = useState([]);
@@ -31,7 +33,11 @@ export default function AdminRecipes() {
     const out = [];
     products.forEach((p) => {
       (p.variants || []).forEach((v) => {
-        const recipe = recipes.find((r) => r.product_id === p.id && r.variant_name === v.name);
+        const exactRecipe = recipes.find((r) => r.product_id === p.id && r.variant_name === v.name);
+        const uniqueName = p.variants.filter((size) => recipeNameKey(size.name) === recipeNameKey(v.name)).length === 1;
+        const recipe = exactRecipe || (uniqueName
+          ? recipes.find((r) => r.product_id === p.id && recipeNameKey(r.variant_name) === recipeNameKey(v.name))
+          : undefined);
         const cost = (recipe?.items || []).reduce((s, it) => {
           const ing = ingredients.find((x) => x.id === it.ingredient_id);
           return s + (ing?.cost_per_unit || 0) * it.quantity;

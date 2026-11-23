@@ -6,6 +6,7 @@ use App\Models\AppUser;
 use App\Models\Ingredient;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Recipe;
 use App\Models\RecipeItem;
 use App\Models\Role;
 use App\Models\StockLedger;
@@ -28,6 +29,14 @@ class EntityService
 
     public function save(string $entity, array $data, ?string $id = null)
     {
+        if ($entity === 'Recipe' && ! $id && isset($data['product_id'])) {
+            $variantName = isset($data['variant_id'])
+                ? ProductVariant::where('product_id', $data['product_id'])->find($data['variant_id'])?->name
+                : ($data['variant_name'] ?? null);
+            if ($variantName) {
+                $id = $this->recipeForVariant($data['product_id'], $variantName)?->id;
+            }
+        }
         $module = self::MODULE[$entity];
         $action = isset($data['deleted_at']) ? 'delete' : ($id ? 'edit' : 'create');
         if ($entity === 'Role' && $id && array_keys($data) === ['permissions']) {
@@ -160,6 +169,31 @@ class EntityService
 
             return $row->fresh();
         }, 3);
+    }
+
+    private function recipeForVariant(string $productId, string $variantName): ?Recipe
+    {
+        $query = Recipe::without('items')->where('product_id', $productId);
+        $exact = (clone $query)->where('variant_name', $variantName)->first();
+        if ($exact) {
+            return $exact;
+        }
+
+        $key = $this->variantNameKey($variantName);
+        $sameNameVariants = ProductVariant::where('product_id', $productId)->get()
+            ->filter(fn (ProductVariant $variant) => $this->variantNameKey($variant->name) === $key);
+        if ($sameNameVariants->count() !== 1) {
+            return null;
+        }
+
+        return $query->get()->first(fn (Recipe $recipe) =>
+            $this->variantNameKey($recipe->variant_name) === $key
+        );
+    }
+
+    private function variantNameKey(string $name): string
+    {
+        return mb_strtolower(preg_replace('/\s+/u', ' ', trim($name)));
     }
 
     public function delete(string $entity, string $id): void

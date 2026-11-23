@@ -108,6 +108,26 @@ class IntegrityTest extends TestCase
         $this->assertDatabaseCount('recipes', 2);
     }
 
+    public function test_recipe_save_repairs_an_existing_size_name_mismatch_instead_of_creating_a_duplicate(): void
+    {
+        $this->actingAs($this->admin());
+        $product = Product::first();
+        $variant = $product->variants->first();
+        $recipe = Recipe::where('product_id', $product->id)->firstOrFail();
+        $recipe->update(['variant_name' => ' Regular  ']);
+
+        $response = $this->postJson('/api/entities/Recipe', [
+            'product_id' => $product->id,
+            'variant_id' => $variant->id,
+            'variant_name' => $variant->name,
+            'items' => [['ingredient_id' => Ingredient::first()->id, 'quantity' => 2]],
+        ])->assertOk();
+
+        $response->assertJsonPath('id', $recipe->id)->assertJsonPath('variant_name', $variant->name);
+        $this->assertDatabaseCount('recipes', 1);
+        $this->assertDatabaseHas('recipe_items', ['recipe_id' => $recipe->id, 'quantity' => 2]);
+    }
+
     public function test_grants_are_enforced_for_export_and_refund_even_when_edit_is_allowed(): void
     {
         $user = $this->admin();
