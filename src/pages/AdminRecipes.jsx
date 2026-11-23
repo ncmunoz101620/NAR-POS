@@ -47,6 +47,7 @@ export default function AdminRecipes() {
       id: row.recipe?.id,
       product_id: row.product.id,
       product_name: row.product.name,
+      variant_id: row.variant.id,
       variant_name: row.variant.name,
       items: row.recipe?.items ? [...row.recipe.items] : [],
     });
@@ -58,7 +59,7 @@ export default function AdminRecipes() {
       const ing = ingredients.find((x) => x.id === i.ingredient_id);
       return { ingredient_id: i.ingredient_id, ingredient_name: ing?.name, quantity: Number(i.quantity), unit: ing?.unit };
     });
-    const payload = { product_id: editing.product_id, product_name: editing.product_name, variant_name: editing.variant_name, items };
+    const payload = { product_id: editing.product_id, product_name: editing.product_name, variant_id: editing.variant_id, variant_name: editing.variant_name, items };
     if (editing.id) await api.entities.Recipe.update(editing.id, payload);
     else await api.entities.Recipe.create(payload);
 

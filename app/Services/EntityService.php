@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AppUser;
 use App\Models\Ingredient;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\RecipeItem;
 use App\Models\Role;
 use App\Models\StockLedger;
@@ -85,6 +86,14 @@ class EntityService
             $stock = $data['current_stock'] ?? null;
             if (in_array($entity, ['Ingredient', 'RawMaterial'])) {
                 unset($data['current_stock']);
+            }
+            if ($entity === 'Recipe' && isset($data['variant_id'])) {
+                $variant = ProductVariant::where('product_id', $data['product_id'] ?? $row->product_id)->find($data['variant_id']);
+                if (! $variant) {
+                    throw ValidationException::withMessages(['variant_id' => 'This product size is no longer available. Refresh the page and try again.']);
+                }
+                $data['variant_name'] = $variant->name;
+                unset($data['variant_id']);
             }
             $row->fill($data);
             $row->save();

@@ -82,6 +82,28 @@ class IntegrityTest extends TestCase
         $this->patchJson('/api/entities/Recipe/'.$recipe->id, ['product_id' => $recipe->product_id, 'variant_name' => $recipe->variant_name, 'items' => [['ingredient_id' => $ing->id, 'quantity' => -1]]])->assertUnprocessable();
     }
 
+    public function test_recipe_save_uses_the_selected_variant_id_and_rejects_another_products_variant(): void
+    {
+        $this->actingAs($this->admin());
+        $product = Product::first();
+        $variant = $product->variants()->create(['name' => 'Sakto Oxtail Kare-Kare', 'price' => 999, 'is_available' => true]);
+        $otherProduct = Product::create(['name' => 'Other product']);
+        $otherVariant = $otherProduct->variants()->create(['name' => 'Other size', 'price' => 100, 'is_available' => true]);
+        $ingredient = Ingredient::first();
+        $payload = [
+            'product_id' => $product->id,
+            'variant_id' => $variant->id,
+            'variant_name' => 'Sakto Oxtail Kare-Kare ',
+            'items' => [['ingredient_id' => $ingredient->id, 'quantity' => 1]],
+        ];
+
+        $this->postJson('/api/entities/Recipe', $payload)->assertOk()->assertJsonPath('variant_name', $variant->name);
+        $this->assertDatabaseHas('recipes', ['product_id' => $product->id, 'variant_name' => $variant->name]);
+        $this->postJson('/api/entities/Recipe', [...$payload, 'variant_id' => $otherVariant->id])
+            ->assertUnprocessable()->assertJsonValidationErrors('variant_id');
+        $this->assertDatabaseCount('recipes', 2);
+    }
+
     public function test_grants_are_enforced_for_export_and_refund_even_when_edit_is_allowed(): void
     {
         $user = $this->admin();

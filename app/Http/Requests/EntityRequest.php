@@ -94,6 +94,7 @@ class EntityRequest extends FormRequest
         }
         if ($entity === 'Recipe') {
             $rules['product_id'] = ['required', 'exists:products,id'];
+            $rules['variant_id'] = ['sometimes', 'required', 'string'];
             $rules['items.*.ingredient_id'] = ['required', 'exists:ingredients,id'];
             $rules['items.*.quantity'] = ['required', 'numeric', 'gt:0', 'max:1000000'];
         }
