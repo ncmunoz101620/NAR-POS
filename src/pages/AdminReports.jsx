@@ -16,6 +16,24 @@ function manilaToday() {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+const DATE_PRESETS = ["Today", "Yesterday", "Weekly", "Monthly", "All Time"];
+
+function reportRange(preset) {
+  if (preset === "All Time") return { from: "", to: "" };
+  const today = new Date(`${manilaToday()}T00:00:00Z`);
+  const date = (day) => day.toISOString().slice(0, 10);
+  const start = new Date(today);
+  if (preset === "Yesterday") start.setUTCDate(start.getUTCDate() - 1);
+  if (preset === "Weekly") start.setUTCDate(start.getUTCDate() - start.getUTCDay());
+  if (preset === "Monthly") start.setUTCDate(1);
+  if (preset === "Last 30 Days") start.setUTCDate(start.getUTCDate() - 29);
+  const end = new Date(preset === "Weekly" ? start : today);
+  if (preset === "Yesterday") end.setUTCDate(end.getUTCDate() - 1);
+  if (preset === "Weekly") end.setUTCDate(end.getUTCDate() + 6);
+  if (preset === "Monthly") end.setUTCMonth(end.getUTCMonth() + 1, 0);
+  return { from: date(start), to: date(end) };
+}
+
 function Report({ title, headers, rows, canExport, totalColumn, totalOverride, footerRow }) {
   const total = totalColumn == null ? null : totalOverride ?? reportTotal(rows, totalColumn);
   const totalRow = footerRow || headers.map((_, i) => i === 0 ? "Total Amount" : i === totalColumn ? total : "");
@@ -59,9 +77,9 @@ function Report({ title, headers, rows, canExport, totalColumn, totalOverride, f
 }
 
 export default function AdminReports() {
-  const todayStr=new Date().toLocaleDateString('en-CA');
-  const [from,setFrom]=useState(new Date(Date.now()-29*86400000).toLocaleDateString('en-CA'));
-  const [to,setTo]=useState(todayStr),[method,setMethod]=useState('all'),[branch,setBranch]=useState('all');
+  const [range,setRange]=useState(() => ({ ...reportRange("Last 30 Days"), preset: "" }));
+  const {from,to,preset}=range;
+  const [method,setMethod]=useState('all'),[branch,setBranch]=useState('all');
   const [report,setReport]=useState({}),[error,setError]=useState('');
   const [eventName,setEventName]=useState(''),[eventDate,setEventDate]=useState(manilaToday),[eventGross,setEventGross]=useState(''),[eventDiscount,setEventDiscount]=useState('0'),[saving,setSaving]=useState(false),[refresh,setRefresh]=useState(0),[saved,setSaved]=useState('');
   useEffect(()=>{let alive=true;request('/reports/reports?'+new URLSearchParams({from,to,method,branch})).then(r=>{if(alive){setReport(r);setError('');}}).catch(e=>{if(alive)setError(e.message);});return ()=>{alive=false;};},[from,to,method,branch,refresh]);
@@ -82,8 +100,8 @@ export default function AdminReports() {
         <>
           {error && <p role="alert" className="text-red-700">{error}</p>}
           <PageHeader title="Reports" subtitle={`${report.validCount || 0} valid order(s) in range`}>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40 bg-white border-[#F0DFD0]" />
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40 bg-white border-[#F0DFD0]" />
+            <Input type="date" aria-label="From date" value={from} onChange={(e) => setRange((current) => ({...current, from:e.target.value, preset:""}))} className="w-40 bg-white border-[#F0DFD0]" />
+            <Input type="date" aria-label="To date" value={to} onChange={(e) => setRange((current) => ({...current, to:e.target.value, preset:""}))} className="w-40 bg-white border-[#F0DFD0]" />
             <Select value={method} onValueChange={setMethod}>
               <SelectTrigger className="w-44 bg-white border-[#F0DFD0]"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -93,6 +111,22 @@ export default function AdminReports() {
             </Select>
             <BranchFilter value={branch} onChange={setBranch} />
           </PageHeader>
+
+          <div className="mb-4 flex flex-wrap gap-2" aria-label="Report date range">
+            {DATE_PRESETS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={preset === option}
+                onClick={() => setRange({...reportRange(option), preset:option})}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${preset === option
+                  ? "border-[#B66D46] bg-[#B66D46] text-white"
+                  : "border-[#D1D5DB] bg-white text-[#374151] hover:border-[#EE8720]"}`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
 
           <Tabs defaultValue="sales">
             <TabsList className="bg-white border border-[#F0DFD0] flex-wrap h-auto">
