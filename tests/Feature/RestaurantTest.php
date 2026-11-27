@@ -434,6 +434,48 @@ class RestaurantTest extends TestCase
         $this->patchJson('/api/entities/StockLedger/'.StockLedger::first()->id, ['current_stock' => 999])->assertStatus(405);
     }
 
+    public function test_ingredient_ledger_shows_opening_receipts_consumption_and_running_balance(): void
+    {
+        $this->actingAs($this->staff());
+        $ingredient = Ingredient::firstOrFail();
+        $this->postJson('/api/inventory/movements', [
+            'ingredient_id' => $ingredient->id, 'ingredient_type' => 'Production',
+            'branch' => 'NAR Commi', 'type' => 'Stock In', 'quantity' => -5,
+        ])->assertUnprocessable();
+        $this->postJson('/api/inventory/movements', [
+            'ingredient_id' => $ingredient->id, 'ingredient_type' => 'Production',
+            'branch' => 'NAR Commi', 'type' => 'Stock In', 'quantity' => 5,
+            'reference' => 'DR-100',
+        ])->assertOk();
+        $orderId = $this->postJson('/api/orders', $this->order())->assertOk()->json('id');
+        $this->patchJson('/api/orders/'.$orderId, ['status' => 'Completed'])->assertOk();
+        $this->postJson('/api/inventory/movements', [
+            'ingredient_id' => $ingredient->id, 'ingredient_type' => 'Production',
+            'branch' => 'NAR Commi', 'type' => 'Waste', 'quantity' => 1,
+        ])->assertOk();
+
+        $url = '/api/reports/ingredient-ledger/'.$ingredient->id.'?branch=NAR%20Commi&per_page=2';
+        $this->getJson($url)->assertOk()
+            ->assertJsonPath('opening', 0)->assertJsonPath('stockIn', 25)
+            ->assertJsonPath('consumed', 0.5)->assertJsonPath('other', -1)
+            ->assertJsonPath('closing', 23.5)->assertJsonPath('total', 4)
+            ->assertJsonPath('pages', 2)->assertJsonPath('rows.0.balance', 20)
+            ->assertJsonPath('rows.1.reference', 'DR-100')
+            ->assertJsonPath('rows.1.balance', 25);
+        $this->getJson($url.'&page=2')->assertOk()
+            ->assertJsonPath('rows.0.consumed', 0.5)
+            ->assertJsonPath('rows.0.balance', 24.5)
+            ->assertJsonPath('rows.1.other', -1)
+            ->assertJsonPath('rows.1.balance', 23.5);
+
+        $tomorrow = \Carbon\CarbonImmutable::now('Asia/Manila')->addDay()->toDateString();
+        $this->getJson($url.'&from='.$tomorrow)->assertOk()
+            ->assertJsonPath('opening', 23.5)->assertJsonPath('closing', 23.5)
+            ->assertJsonPath('total', 0);
+        $this->actingAs($this->staff('ADMIN', 'NAR Greenwoods'));
+        $this->getJson($url)->assertForbidden();
+    }
+
     public function test_completion_consumption_reversal_and_repeated_status_are_idempotent(): void
     {
         $this->actingAs($this->staff());

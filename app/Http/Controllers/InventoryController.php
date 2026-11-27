@@ -15,6 +15,9 @@ class InventoryController extends Controller
     {
         Access::require('inventory', 'create');
         $data = $request->validate(['ingredient_id' => 'required|uuid', 'ingredient_type' => ['required', Rule::in(['Raw', 'Production'])], 'branch' => ['required', Rule::in(InventoryService::BRANCHES)], 'type' => ['required', Rule::in(['Stock In', 'Waste', 'Adjustment', 'Return', 'Correction'])], 'quantity' => 'required|numeric|not_in:0|min:-1000000|max:1000000', 'reference' => 'nullable|string|max:255', 'notes' => 'nullable|string|max:2000']);
+        if (in_array($data['type'], ['Stock In', 'Return'], true) && $data['quantity'] <= 0) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['quantity' => 'Enter a positive quantity for stock received.']);
+        }
         Access::branch($data['branch']);
         $service->item($data['ingredient_id'], $data['ingredient_type']);
         $qty = $data['type'] === 'Waste' ? -abs($data['quantity']) : (in_array($data['type'], ['Stock In', 'Return']) ? abs($data['quantity']) : $data['quantity']);

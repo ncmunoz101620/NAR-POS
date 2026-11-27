@@ -6,11 +6,28 @@ use App\Services\Access;
 use App\Services\DailySalesReportService;
 use App\Services\ReportService;
 use App\Services\OrderService;
+use App\Services\InventoryService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ReportController extends Controller
 {
+    public function ingredientLedger(Request $request, string $id, ReportService $service)
+    {
+        Access::require('ingredients', 'view');
+        $data = $request->validate([
+            'branch' => ['required', Rule::in(InventoryService::BRANCHES)],
+            'from' => 'nullable|date_format:Y-m-d',
+            'to' => 'nullable|date_format:Y-m-d|after_or_equal:from',
+            'page' => 'sometimes|integer|min:1',
+            'per_page' => 'sometimes|integer|min:1|max:100',
+        ]);
+        Access::branch($data['branch']);
+
+        return $service->ingredientLedger($id, $data['branch'], $data['from'] ?? null, $data['to'] ?? null, (int) ($data['page'] ?? 1), (int) ($data['per_page'] ?? 50));
+    }
+
     public function storeEventSale(Request $request, OrderService $orders)
     {
         Access::require('reports', 'create');

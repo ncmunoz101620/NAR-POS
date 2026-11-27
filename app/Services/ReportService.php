@@ -14,6 +14,77 @@ use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
+    public function ingredientLedger(string $ingredientId, string $branch, ?string $from, ?string $to, int $page = 1, int $perPage = 50): array
+    {
+        $ingredient = Ingredient::whereNull('deleted_at')->findOrFail($ingredientId);
+        $current = (int) round((float) StockLedger::where('item_id', $ingredientId)
+            ->where('item_type', 'Production')->where('branch', $branch)->value('current_stock') * 1000);
+        $movements = InventoryTransaction::where('ingredient_id', $ingredientId)
+            ->where('ingredient_type', 'Production')->where('branch', $branch);
+        $fromUtc = $from ? CarbonImmutable::parse($from, 'Asia/Manila')->startOfDay()->utc() : null;
+        $toUtc = $to ? CarbonImmutable::parse($to, 'Asia/Manila')->addDay()->startOfDay()->utc() : null;
+
+        // Reconcile journal history with the current ledger so imported opening stock is retained.
+        $sinceOpening = clone $movements;
+        if ($fromUtc) {
+            $sinceOpening->where('created_at', '>=', $fromUtc);
+        }
+        $opening = $current - (int) round((float) $sinceOpening->sum('quantity') * 1000);
+
+        $period = clone $movements;
+        if ($fromUtc) {
+            $period->where('created_at', '>=', $fromUtc);
+        }
+        if ($toUtc) {
+            $period->where('created_at', '<', $toUtc);
+        }
+        $totals = (clone $period)->selectRaw("COALESCE(SUM(CASE WHEN type = 'Stock In' THEN quantity ELSE 0 END), 0) AS stock_in")
+            ->selectRaw("COALESCE(SUM(CASE WHEN type = 'Sales Consumption' THEN -quantity ELSE 0 END), 0) AS consumed")
+            ->selectRaw("COALESCE(SUM(CASE WHEN type NOT IN ('Stock In', 'Sales Consumption') THEN quantity ELSE 0 END), 0) AS other")
+            ->selectRaw('COALESCE(SUM(quantity), 0) AS net')->first();
+        $stockIn = (int) round((float) $totals->stock_in * 1000);
+        $consumed = (int) round((float) $totals->consumed * 1000);
+        $other = (int) round((float) $totals->other * 1000);
+        $net = (int) round((float) $totals->net * 1000);
+        $total = (clone $period)->count();
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $pages);
+        $rows = (clone $period)->orderBy('created_at')->orderBy('id')
+            ->forPage($page, $perPage)->get();
+        $beforePage = 0;
+        if ($rows->isNotEmpty()) {
+            $first = $rows->first();
+            $beforePage = (int) round((float) (clone $period)
+                ->where(fn ($query) => $query->where('created_at', '<', $first->created_at)
+                    ->orWhere(fn ($sameTime) => $sameTime->where('created_at', $first->created_at)->where('id', '<', $first->id)))
+                ->sum('quantity') * 1000);
+        }
+        $balance = $opening + $beforePage;
+
+        return [
+            'ingredient' => ['id' => $ingredient->id, 'name' => $ingredient->name, 'unit' => $ingredient->unit],
+            'branch' => $branch, 'from' => $from, 'to' => $to,
+            'opening' => $opening / 1000, 'stockIn' => $stockIn / 1000,
+            'consumed' => $consumed / 1000, 'other' => $other / 1000,
+            'closing' => ($opening + $net) / 1000,
+            'total' => $total, 'page' => $page, 'pages' => $pages,
+            'rows' => $rows->map(function ($movement) use (&$balance) {
+                $quantity = (int) round($movement->quantity * 1000);
+                $balance += $quantity;
+
+                return [
+                    'id' => $movement->id, 'at' => $movement->created_at->toISOString(),
+                    'type' => $movement->type, 'quantity' => $quantity / 1000,
+                    'stockIn' => $movement->type === 'Stock In' ? $quantity / 1000 : 0,
+                    'consumed' => $movement->type === 'Sales Consumption' ? -$quantity / 1000 : 0,
+                    'other' => in_array($movement->type, ['Stock In', 'Sales Consumption'], true) ? 0 : $quantity / 1000,
+                    'balance' => $balance / 1000, 'reference' => $movement->reference,
+                    'notes' => $movement->notes, 'user' => $movement->user_name,
+                ];
+            })->all(),
+        ];
+    }
+
     public function inventorySummary(array $filters): array
     {
         $moves = $this->scope(InventoryTransaction::query(), $filters)->where('ingredient_type', 'Production')->select('ingredient_id')->selectRaw('SUM(CASE WHEN quantity > 0 THEN quantity ELSE 0 END) as total_in, SUM(CASE WHEN quantity < 0 THEN -quantity ELSE 0 END) as total_out')->groupBy('ingredient_id')->get()->keyBy('ingredient_id');

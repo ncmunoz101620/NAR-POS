@@ -43,6 +43,7 @@ Route::prefix('api')->group(function () {
         Route::post('/reports/daily-sales/test', [ReportController::class, 'sendDailySalesTest']);
         Route::get('/reports/gmail/status', [GmailReportConnectionController::class, 'status']);
         Route::post('/reports/event-sales', [ReportController::class, 'storeEventSale']);
+        Route::get('/reports/ingredient-ledger/{id}', [ReportController::class, 'ingredientLedger']);
         Route::get('/reports/{type}', [ReportController::class, 'show']);
         Route::post('/entities/{entity}', [EntityController::class, 'store']);
         Route::patch('/entities/{entity}/{id}', [EntityController::class, 'update']);

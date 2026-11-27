@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { api } from "@/api/client";
-import { Plus, Search, Pencil, AlertTriangle, FileSpreadsheet, Trash2, BarChart3 } from "lucide-react";
+import { api, request } from "@/api/client";
+import { Plus, Search, Pencil, AlertTriangle, FileSpreadsheet, Trash2, BarChart3, PackagePlus, ScrollText } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import ModuleGuard from "@/components/admin/ModuleGuard";
 import ImportIngredientsDialog from "@/components/admin/ImportIngredientsDialog";
 import IngredientInventorySummary from "@/components/admin/IngredientInventorySummary";
+import IngredientLedger from "@/components/admin/IngredientLedger";
 import { peso, UNITS } from "@/lib/brand";
+import { BRANCHES } from "@/lib/inventory";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +32,9 @@ export default function AdminIngredients() {
   const [importOpen, setImportOpen] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [ledgerIngredient, setLedgerIngredient] = useState(null);
+  const [stockIn, setStockIn] = useState(null);
+  const [savingStock, setSavingStock] = useState(false);
 
   const refresh = () => api.entities.Ingredient.list("name").then((r) => setRows(r.filter((x) => !x.deleted_at)));
   useEffect(() => { refresh(); }, []);
@@ -74,9 +79,35 @@ export default function AdminIngredients() {
     toast({ title: "Ingredient deleted" });
   };
 
+  const openStockIn = (ingredient, session) => setStockIn({
+    ingredient_id: ingredient?.id || "",
+    branch: session.appUser?.branch === "All" ? "" : session.appUser?.branch || "",
+    quantity: "", reference: "", notes: "",
+  });
+
+  const saveStockIn = async () => {
+    if (!stockIn.ingredient_id || !stockIn.branch || !Number.isFinite(Number(stockIn.quantity)) || Number(stockIn.quantity) <= 0) {
+      toast({ title: "Select an ingredient and branch, then enter a positive quantity", variant: "destructive" });
+      return;
+    }
+    setSavingStock(true);
+    try {
+      await request("/inventory/movements", "POST", { ...stockIn, ingredient_type: "Production", type: "Stock In", quantity: Number(stockIn.quantity) });
+      setStockIn(null);
+      await refresh();
+      toast({ title: "Stock In recorded" });
+    } catch (error) {
+      toast({ title: "Unable to record Stock In", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingStock(false);
+    }
+  };
+
   return (
     <ModuleGuard module="ingredients">
-      {(session) => showSummary ? (
+      {(session) => ledgerIngredient !== null ? (
+        <IngredientLedger ingredients={rows} initialIngredientId={ledgerIngredient} assignedBranch={session.appUser?.branch} onBack={() => setLedgerIngredient(null)} />
+      ) : showSummary ? (
         <IngredientInventorySummary ingredients={rows} onBack={() => setShowSummary(false)} />
       ) : (
         <>
@@ -96,6 +127,12 @@ export default function AdminIngredients() {
             <button onClick={() => setShowSummary(true)} className="inline-flex items-center gap-2 rounded-full bg-[#EE8720]/10 text-[#EE8720] border border-[#EE8720]/30 px-5 py-2.5 text-sm font-bold hover:bg-[#EE8720]/20">
               <BarChart3 className="w-4 h-4" /> Inventory Summary
             </button>
+            <button onClick={() => setLedgerIngredient("")} className="inline-flex items-center gap-2 rounded-full bg-[#EE8720]/10 text-[#EE8720] border border-[#EE8720]/30 px-5 py-2.5 text-sm font-bold hover:bg-[#EE8720]/20">
+              <ScrollText className="w-4 h-4" /> Ingredient Ledger
+            </button>
+            {session.can("inventory", "create") && <button onClick={() => openStockIn(null, session)} className="inline-flex items-center gap-2 rounded-full bg-[#EE8720] text-white px-5 py-2.5 text-sm font-bold">
+              <PackagePlus className="w-4 h-4" /> Stock In
+            </button>}
             <button onClick={() => setImportOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-[#581E12] text-white px-5 py-2.5 text-sm font-bold">
               <FileSpreadsheet className="w-4 h-4" /> Import Excel
             </button>
@@ -131,6 +168,8 @@ export default function AdminIngredients() {
                       <td className="px-4 py-3 text-[#7a4b3a]">{r.storage_location || "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <button title="View ledger" aria-label={`View ${r.name} ledger`} onClick={() => setLedgerIngredient(r.id)} className="p-2 rounded-lg hover:bg-[#F8CFB1]/40 text-[#581E12]"><ScrollText className="w-4 h-4" /></button>
+                          {session.can("inventory", "create") && <button title="Stock In" aria-label={`Stock In for ${r.name}`} onClick={() => openStockIn(r, session)} className="p-2 rounded-lg hover:bg-[#F8CFB1]/40 text-[#EE8720]"><PackagePlus className="w-4 h-4" /></button>}
                           {session.can("ingredients", "edit") && (
                             <button onClick={() => setEditing({ ...r })} className="p-2 rounded-lg hover:bg-[#F8CFB1]/40 text-[#581E12]"><Pencil className="w-4 h-4" /></button>
                           )}
@@ -181,6 +220,20 @@ export default function AdminIngredients() {
               </DialogContent>
             </Dialog>
           )}
+
+          {stockIn && <Dialog open onOpenChange={(open) => { if (!open && !savingStock) setStockIn(null); }}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle className="text-[#581E12]">Stock In</DialogTitle></DialogHeader>
+              <div className="grid gap-4">
+                <div><Label>Ingredient *</Label><Select value={stockIn.ingredient_id} onValueChange={(value) => setStockIn({ ...stockIn, ingredient_id: value })}><SelectTrigger className="mt-1.5"><SelectValue placeholder="Select ingredient" /></SelectTrigger><SelectContent>{rows.map((item) => <SelectItem key={item.id} value={item.id}>{item.name} ({item.unit})</SelectItem>)}</SelectContent></Select></div>
+                <div><Label>Branch *</Label><Select value={stockIn.branch} onValueChange={(value) => setStockIn({ ...stockIn, branch: value })}><SelectTrigger className="mt-1.5"><SelectValue placeholder="Select branch" /></SelectTrigger><SelectContent>{(session.appUser?.branch && session.appUser.branch !== "All" ? [session.appUser.branch] : BRANCHES).map((branch) => <SelectItem key={branch} value={branch}>{branch}</SelectItem>)}</SelectContent></Select></div>
+                <div><Label>Quantity *</Label><Input type="number" min="0.001" step="0.001" value={stockIn.quantity} onChange={(event) => setStockIn({ ...stockIn, quantity: event.target.value })} className="mt-1.5" /></div>
+                <div><Label>Reference</Label><Input value={stockIn.reference} onChange={(event) => setStockIn({ ...stockIn, reference: event.target.value })} placeholder="Delivery receipt or invoice number" className="mt-1.5" /></div>
+                <div><Label>Notes</Label><Textarea value={stockIn.notes} onChange={(event) => setStockIn({ ...stockIn, notes: event.target.value })} className="mt-1.5" /></div>
+              </div>
+              <div className="flex justify-end gap-2"><button type="button" disabled={savingStock} onClick={() => setStockIn(null)} className="rounded-full border border-[#F0DFD0] px-5 py-2.5 text-sm font-bold text-[#581E12]">Cancel</button><button type="button" disabled={savingStock} onClick={saveStockIn} className="rounded-full bg-[#EE8720] px-6 py-2.5 text-sm font-bold text-white disabled:opacity-50">{savingStock ? "Saving…" : "Record Stock In"}</button></div>
+            </DialogContent>
+          </Dialog>}
 
           {deleting && (
             <AlertDialog open onOpenChange={() => setDeleting(null)}>
