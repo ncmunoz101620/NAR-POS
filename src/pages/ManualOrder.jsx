@@ -362,7 +362,7 @@ export default function ManualOrder() {
               <Select value={form.branch} onValueChange={(v) => set("branch", v)}>
                 <SelectTrigger aria-label="Branch" aria-required="true"><SelectValue placeholder="Select Branch" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="NAR Commi">NAR Commi</SelectItem>
+                  <SelectItem value="NAR Armal">NAR Armal</SelectItem>
                   <SelectItem value="NAR Greenwoods">NAR Greenwoods</SelectItem>
                 </SelectContent>
               </Select>

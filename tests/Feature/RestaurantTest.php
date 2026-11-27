@@ -48,7 +48,39 @@ class RestaurantTest extends TestCase
     {
         $p = Product::first();
 
-        return array_replace(['branch' => 'NAR Commi', 'customer_name' => 'Customer', 'customer_phone' => '09170000000', 'order_type' => 'Pick-up', 'payment_method' => 'Cash', 'items' => [['product_id' => $p->id, 'variant_name' => 'Regular', 'quantity' => 2, 'unit_price' => 1, 'subtotal' => 1, 'modifiers' => []]], 'total' => 1, 'subtotal' => 1], $override);
+        return array_replace(['branch' => 'NAR Armal', 'customer_name' => 'Customer', 'customer_phone' => '09170000000', 'order_type' => 'Pick-up', 'payment_method' => 'Cash', 'items' => [['product_id' => $p->id, 'variant_name' => 'Regular', 'quantity' => 2, 'unit_price' => 1, 'subtotal' => 1, 'modifiers' => []]], 'total' => 1, 'subtotal' => 1], $override);
+    }
+
+    public function test_branch_rename_migrates_existing_records_without_changing_balances(): void
+    {
+        $this->staff('ADMIN', 'NAR Armal');
+        $this->actingAs($this->staff());
+        $ingredient = Ingredient::firstOrFail();
+        $this->postJson('/api/orders', $this->order())->assertOk();
+        $this->postJson('/api/inventory/transfers', [
+            'item_id' => $ingredient->id, 'item_type' => 'Production',
+            'from_branch' => 'NAR Armal', 'to_branch' => 'NAR Greenwoods', 'quantity' => 2,
+        ])->assertCreated();
+        $this->postJson('/api/inventory/transfers', [
+            'item_id' => $ingredient->id, 'item_type' => 'Production',
+            'from_branch' => 'NAR Greenwoods', 'to_branch' => 'NAR Armal', 'quantity' => 1,
+        ])->assertCreated();
+        $balance = StockLedger::where('item_id', $ingredient->id)->sum('current_stock');
+
+        $migration = require database_path('migrations/2026_11_27_000001_rename_commi_branch_to_armal.php');
+        $migration->down();
+        $this->assertDatabaseHas('orders', ['branch' => 'NAR Commi']);
+        $migration->up();
+
+        foreach (['app_users', 'orders', 'stock_ledgers', 'inventory_transactions'] as $table) {
+            $this->assertSame(0, DB::table($table)->where('branch', 'NAR Commi')->count());
+            $this->assertGreaterThan(0, DB::table($table)->where('branch', 'NAR Armal')->count());
+        }
+        $this->assertDatabaseHas('stock_transfers', ['from_branch' => 'NAR Armal', 'to_branch' => 'NAR Greenwoods']);
+        $this->assertDatabaseHas('stock_transfers', ['from_branch' => 'NAR Greenwoods', 'to_branch' => 'NAR Armal']);
+        $this->assertEquals($balance, StockLedger::where('item_id', $ingredient->id)->sum('current_stock'));
+        $this->getJson('/api/reports/dashboard?branch=NAR%20Armal')->assertOk();
+        $this->getJson('/api/reports/dashboard?branch=NAR%20Commi')->assertUnprocessable();
     }
 
     public function test_event_sales_add_to_overall_totals_without_affecting_orders_or_branch_filtered_sales(): void
@@ -64,7 +96,7 @@ class RestaurantTest extends TestCase
         $this->getJson('/api/reports/dashboard?from=2026-10-06&to=2026-10-06')->assertOk()->assertJsonPath('sales', 1200)->assertJsonPath('eventSales', 1200)->assertJsonPath('netSales', 1200)->assertJsonPath('grossSales', 1234.56)->assertJsonPath('discounts', 34.56)->assertJsonPath('orderCount', 0)->assertJsonPath('byDay.0.day', '2026-10-06')->assertJsonPath('byDay.0.sales', 1200);
         $this->getJson('/api/reports/reports?from=2026-10-06&to=2026-10-06')->assertOk()->assertJsonPath('eventGrossTotal', 1234.56)->assertJsonPath('eventDiscountTotal', 34.56)->assertJsonPath('eventNetTotal', 1200)->assertJsonPath('eventSales.0.0', '2026-10-06')->assertJsonPath('eventSales.0.3', '₱1,234.56')->assertJsonPath('eventSales.0.4', '₱34.56')->assertJsonPath('eventSales.0.5', '₱1,200.00')->assertJsonCount(1, 'daily')->assertJsonPath('daily.0.0', '2026-10-06')->assertJsonPath('daily.0.1', 0)->assertJsonPath('daily.0.2', '₱1,234.56')->assertJsonPath('daily.0.3', '₱34.56')->assertJsonPath('daily.0.7', '₱1,200.00');
         $this->getJson('/api/reports/dashboard?from=2026-10-07&to=2026-10-07')->assertOk()->assertJsonPath('eventSales', 0);
-        $this->getJson('/api/reports/dashboard?branch=NAR%20Commi')->assertOk()->assertJsonPath('eventSales', 0);
+        $this->getJson('/api/reports/dashboard?branch=NAR%20Armal')->assertOk()->assertJsonPath('eventSales', 0);
         $this->getJson('/api/reports/reports?method=Cash')->assertOk()->assertJsonPath('eventSalesTotal', 0);
         $daily = app(\App\Services\DailySalesReportService::class)->dataForDate(\Carbon\CarbonImmutable::parse('2026-10-06', 'Asia/Manila'));
         $this->assertEquals(1200, $daily['totalSales']);
@@ -82,7 +114,7 @@ class RestaurantTest extends TestCase
     public function test_event_sales_require_permissions_and_valid_amount(): void
     {
         $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'event_date' => '2026-10-06', 'gross_sales' => '25.00', 'discount' => '0'])->assertUnauthorized();
-        $this->actingAs($this->staff('ADMIN', 'NAR Commi'));
+        $this->actingAs($this->staff('ADMIN', 'NAR Armal'));
         $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'event_date' => '2026-10-06', 'gross_sales' => '25.00', 'discount' => '0'])->assertForbidden();
         $this->actingAs($this->staff());
         $this->postJson('/api/reports/event-sales', ['event_name' => 'Fair', 'gross_sales' => '25.00', 'discount' => '0'])->assertUnprocessable()->assertJsonValidationErrors('event_date');
@@ -185,7 +217,7 @@ class RestaurantTest extends TestCase
         $this->assertDatabaseCount('orders', 2);
         $this->assertDatabaseCount('inventory_transactions', $before);
         $this->assertEquals(-5, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Greenwoods'));
-        $this->assertEquals(20, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+        $this->assertEquals(20, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Armal'));
     }
 
     public function test_manual_order_requires_an_explicit_branch(): void
@@ -196,7 +228,7 @@ class RestaurantTest extends TestCase
         $this->postJson('/api/orders', $payload)->assertUnprocessable()->assertJsonValidationErrors('branch');
         $this->postJson('/api/orders', array_replace($payload, ['branch' => '']))->assertUnprocessable()->assertJsonValidationErrors('branch');
         $this->assertDatabaseCount('orders', 0);
-        foreach (['NAR Commi', 'NAR Greenwoods'] as $branch) {
+        foreach (['NAR Armal', 'NAR Greenwoods'] as $branch) {
             $this->postJson('/api/orders', array_replace($payload, ['branch' => $branch]))->assertOk()->assertJsonPath('branch', $branch);
         }
     }
@@ -230,11 +262,11 @@ class RestaurantTest extends TestCase
         $product = Product::first();
         $ingredient = Ingredient::first();
         \App\Models\Recipe::first()->items()->update(['quantity' => 0.1]);
-        StockLedger::where('item_id', $ingredient->id)->where('branch', 'NAR Commi')->update(['current_stock' => 0.3]);
+        StockLedger::where('item_id', $ingredient->id)->where('branch', 'NAR Armal')->update(['current_stock' => 0.3]);
         app(InventoryService::class)->validateAvailability([
             ['product_id' => $product->id, 'variant_name' => 'Regular', 'quantity' => 3],
-        ], 'NAR Commi');
-        $this->assertEquals(0.3, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+        ], 'NAR Armal');
+        $this->assertEquals(0.3, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Armal'));
     }
 
     public function test_variant_spacing_does_not_bypass_availability_or_ambiguous_matches(): void
@@ -267,11 +299,11 @@ class RestaurantTest extends TestCase
                 'id' => (string) \Illuminate\Support\Str::uuid(),
                 'tracking_token' => (string) \Illuminate\Support\Str::uuid(),
                 'order_number' => 'DASHBOARD-'.$index,
-                'branch' => 'NAR Commi', 'status' => 'Completed',
+                'branch' => 'NAR Armal', 'status' => 'Completed',
                 'created_at' => '2026-10-06 02:00:00',
             ], $fixture));
         }
-        $this->getJson('/api/reports/dashboard?from=2026-10-06&to=2026-10-06&branch=NAR%20Commi')
+        $this->getJson('/api/reports/dashboard?from=2026-10-06&to=2026-10-06&branch=NAR%20Armal')
             ->assertOk()->assertJsonPath('grossSales', 360)->assertJsonPath('discounts', 35)
             ->assertJsonPath('netSales', 325)->assertJsonPath('sales', 325)
             ->assertJsonPath('validCount', 2)->assertJsonPath('avg', 162.5)
@@ -337,7 +369,7 @@ class RestaurantTest extends TestCase
             'email' => 'staff-password@example.test',
             'password' => 'Staff-password-123',
             'role_name' => 'CSR',
-            'branch' => 'NAR Commi',
+            'branch' => 'NAR Armal',
             'is_active' => true,
         ];
 
@@ -358,7 +390,7 @@ class RestaurantTest extends TestCase
             'email' => 'reusable@example.test',
             'password' => 'Reusable-password-123',
             'role_name' => 'CSR',
-            'branch' => 'NAR Commi',
+            'branch' => 'NAR Armal',
             'is_active' => true,
         ];
 
@@ -382,7 +414,7 @@ class RestaurantTest extends TestCase
             'email' => 'active-account@example.test',
             'password' => 'Taken-password-123',
             'role_name' => 'CSR',
-            'branch' => 'NAR Commi',
+            'branch' => 'NAR Armal',
             'is_active' => true,
         ])->assertUnprocessable()->assertJsonValidationErrors('email');
     }
@@ -421,12 +453,12 @@ class RestaurantTest extends TestCase
     {
         $this->actingAs($this->staff());
         $ing = Ingredient::first();
-        $data = ['ingredient_id' => $ing->id, 'ingredient_type' => 'Production', 'branch' => 'NAR Commi', 'type' => 'Stock In', 'quantity' => 5];
+        $data = ['ingredient_id' => $ing->id, 'ingredient_type' => 'Production', 'branch' => 'NAR Armal', 'type' => 'Stock In', 'quantity' => 5];
         $this->postJson('/api/inventory/movements', $data)->assertOk()->assertJsonPath('current_stock', 25);
         $this->postJson('/api/inventory/movements', array_replace($data, ['type' => 'Adjustment', 'quantity' => -2]))->assertOk()->assertJsonPath('current_stock', 23);
-        $transfer = ['item_id' => $ing->id, 'item_type' => 'Production', 'from_branch' => 'NAR Commi', 'to_branch' => 'NAR Greenwoods', 'quantity' => 3];
+        $transfer = ['item_id' => $ing->id, 'item_type' => 'Production', 'from_branch' => 'NAR Armal', 'to_branch' => 'NAR Greenwoods', 'quantity' => 3];
         $this->postJson('/api/inventory/transfers', $transfer)->assertCreated();
-        $this->assertDatabaseHas('stock_ledgers', ['item_id' => $ing->id, 'branch' => 'NAR Commi', 'current_stock' => 20]);
+        $this->assertDatabaseHas('stock_ledgers', ['item_id' => $ing->id, 'branch' => 'NAR Armal', 'current_stock' => 20]);
         $this->assertDatabaseHas('stock_ledgers', ['item_id' => $ing->id, 'branch' => 'NAR Greenwoods', 'current_stock' => 3]);
         $this->postJson('/api/inventory/transfers', array_replace($transfer, ['quantity' => 100]))->assertUnprocessable();
         $this->assertDatabaseCount('stock_transfers', 1);
@@ -440,21 +472,21 @@ class RestaurantTest extends TestCase
         $ingredient = Ingredient::firstOrFail();
         $this->postJson('/api/inventory/movements', [
             'ingredient_id' => $ingredient->id, 'ingredient_type' => 'Production',
-            'branch' => 'NAR Commi', 'type' => 'Stock In', 'quantity' => -5,
+            'branch' => 'NAR Armal', 'type' => 'Stock In', 'quantity' => -5,
         ])->assertUnprocessable();
         $this->postJson('/api/inventory/movements', [
             'ingredient_id' => $ingredient->id, 'ingredient_type' => 'Production',
-            'branch' => 'NAR Commi', 'type' => 'Stock In', 'quantity' => 5,
+            'branch' => 'NAR Armal', 'type' => 'Stock In', 'quantity' => 5,
             'reference' => 'DR-100',
         ])->assertOk();
         $orderId = $this->postJson('/api/orders', $this->order())->assertOk()->json('id');
         $this->patchJson('/api/orders/'.$orderId, ['status' => 'Completed'])->assertOk();
         $this->postJson('/api/inventory/movements', [
             'ingredient_id' => $ingredient->id, 'ingredient_type' => 'Production',
-            'branch' => 'NAR Commi', 'type' => 'Waste', 'quantity' => 1,
+            'branch' => 'NAR Armal', 'type' => 'Waste', 'quantity' => 1,
         ])->assertOk();
 
-        $url = '/api/reports/ingredient-ledger/'.$ingredient->id.'?branch=NAR%20Commi&per_page=2';
+        $url = '/api/reports/ingredient-ledger/'.$ingredient->id.'?branch=NAR%20Armal&per_page=2';
         $this->getJson($url)->assertOk()
             ->assertJsonPath('opening', 0)->assertJsonPath('stockIn', 25)
             ->assertJsonPath('consumed', 0.5)->assertJsonPath('other', -1)
@@ -479,7 +511,7 @@ class RestaurantTest extends TestCase
     public function test_completion_consumption_reversal_and_repeated_status_are_idempotent(): void
     {
         $this->actingAs($this->staff());
-        $id = $this->postJson('/api/orders', $this->order(['source' => 'Manual', 'branch' => 'NAR Commi']))->assertOk()->json('id');
+        $id = $this->postJson('/api/orders', $this->order(['source' => 'Manual', 'branch' => 'NAR Armal']))->assertOk()->json('id');
         $this->patchJson('/api/orders/'.$id, ['status' => 'Completed'])->assertOk()->assertJsonPath('inventory_deducted', true);
         $this->patchJson('/api/orders/'.$id, ['status' => 'Completed'])->assertOk();
         $this->assertEquals(19.5, Ingredient::first()->current_stock);
@@ -496,7 +528,7 @@ class RestaurantTest extends TestCase
     {
         $this->actingAs($this->staff());
         $id = $this->postJson('/api/orders', $this->order())->assertOk()->json('id');
-        app(InventoryService::class)->adjustStock(Ingredient::first()->id, 'Production', 'NAR Commi', -20, 'Waste');
+        app(InventoryService::class)->adjustStock(Ingredient::first()->id, 'Production', 'NAR Armal', -20, 'Waste');
         $this->patchJson('/api/orders/'.$id, ['status' => 'Completed'])->assertUnprocessable();
         $this->assertDatabaseHas('orders', ['id' => $id, 'status' => 'Pending', 'inventory_deducted' => false]);
         $this->assertDatabaseCount('order_status_histories', 1);
@@ -506,22 +538,22 @@ class RestaurantTest extends TestCase
     {
         $this->actingAs($this->staff());
         $ingredient = Ingredient::first();
-        StockLedger::where('item_id', $ingredient->id)->where('branch', 'NAR Commi')->update(['current_stock' => -2]);
+        StockLedger::where('item_id', $ingredient->id)->where('branch', 'NAR Armal')->update(['current_stock' => -2]);
         $ids = [];
         for ($i = 0; $i < 2; $i++) {
-            $ids[] = $this->postJson('/api/orders', $this->order(['source' => 'Manual', 'branch' => 'NAR Commi']))->assertOk()->json('id');
+            $ids[] = $this->postJson('/api/orders', $this->order(['source' => 'Manual', 'branch' => 'NAR Armal']))->assertOk()->json('id');
         }
         foreach ($ids as $id) {
             $this->patchJson('/api/orders/'.$id, ['status' => 'Completed'])->assertOk()->assertJsonPath('inventory_deducted', true);
             $this->patchJson('/api/orders/'.$id, ['status' => 'Completed'])->assertOk();
         }
-        $this->assertEquals(-3, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+        $this->assertEquals(-3, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Armal'));
         $this->assertEquals(2, InventoryTransaction::whereIn('order_id', $ids)->where('type', 'Sales Consumption')->count());
         foreach ([$ids[0] => 'Cancelled', $ids[1] => 'Refunded'] as $id => $status) {
             $this->patchJson('/api/orders/'.$id, ['status' => $status, 'reason' => 'Test reversal'])->assertOk();
             $this->patchJson('/api/orders/'.$id, ['status' => $status])->assertOk();
         }
-        $this->assertEquals(-2, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Commi'));
+        $this->assertEquals(-2, app(InventoryService::class)->calculateAvailableStock($ingredient->id, 'Production', 'NAR Armal'));
         $this->assertEquals(2, InventoryTransaction::whereIn('order_id', $ids)->where('type', 'Return')->whereNotNull('reversal_of')->count());
     }
 
@@ -532,7 +564,7 @@ class RestaurantTest extends TestCase
         $this->actingAs($this->staff('CSR', 'NAR Greenwoods'));
         $this->getJson('/api/entities/Order')->assertOk()->assertJsonCount(0);
         $this->patchJson('/api/orders/'.$id, ['status' => 'Completed'])->assertForbidden();
-        $this->actingAs($this->staff('RND COOK', 'NAR Commi'));
+        $this->actingAs($this->staff('RND COOK', 'NAR Armal'));
         $this->patchJson('/api/orders/'.$id, ['status' => 'Preparing', 'cook_name' => 'Cook'])->assertOk();
         $this->patchJson('/api/orders/'.$id, ['payment_status' => 'Paid'])->assertForbidden();
         $this->patchJson('/api/orders/'.$id, ['status' => 'Refunded'])->assertForbidden();

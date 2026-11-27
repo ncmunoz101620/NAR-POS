@@ -154,7 +154,7 @@ class EntityService
                 StockLedger::where(['item_id' => $row->id, 'item_type' => $type])->update(['item_name' => $row->name, 'unit' => $row->unit, 'min_stock' => $row->min_stock]);
                 if ($stock !== null) {
                     $branch = Access::profile(auth()->user())?->branch;
-                    $branch = (! $branch || $branch === 'All') ? 'NAR Commi' : $branch;
+                    $branch = (! $branch || $branch === 'All') ? 'NAR Armal' : $branch;
                     $stockQuery = StockLedger::where(['item_id' => $row->id, 'item_type' => $type]);
                     if (Access::profile(auth()->user())?->branch && Access::profile(auth()->user())?->branch !== 'All') {
                         $stockQuery->where('branch', $branch);

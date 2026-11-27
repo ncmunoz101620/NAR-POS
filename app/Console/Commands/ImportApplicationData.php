@@ -43,6 +43,19 @@ class ImportApplicationData extends Command
             return self::FAILURE;
         }
 
+        // Older exports may still carry the former branch name. Normalize them
+        // before inserting into the current branch enum and access model.
+        foreach (['app_users' => ['branch'], 'orders' => ['branch'], 'stock_ledgers' => ['branch'], 'inventory_transactions' => ['branch'], 'stock_transfers' => ['from_branch', 'to_branch']] as $table => $columns) {
+            foreach ($payload['tables'][$table] as &$row) {
+                foreach ($columns as $column) {
+                    if (($row[$column] ?? null) === 'NAR Commi') {
+                        $row[$column] = 'NAR Armal';
+                    }
+                }
+            }
+            unset($row);
+        }
+
         $hasConflicts = false;
         foreach (['products', 'ingredients', 'raw_materials'] as $table) {
             $result = ImportSkus::resolve($payload['tables'][$table]);

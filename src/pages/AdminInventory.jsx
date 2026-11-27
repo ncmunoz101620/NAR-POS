@@ -25,7 +25,7 @@ export default function AdminInventory() {
   const [users, setUsers] = useState([]);
   const [q, setQ] = useState("");
   const [type, setType] = useState("all");
-  const [branch, setBranch] = useState("NAR Commi");
+  const [branch, setBranch] = useState("NAR Armal");
   const [form, setForm] = useState(null);
 
   const refresh = async () => {
@@ -55,7 +55,7 @@ export default function AdminInventory() {
     return txs.filter(
       (t) =>
         (type === "all" || t.type === type) &&
-        (t.branch || "NAR Commi") === branch &&
+        (t.branch || "NAR Armal") === branch &&
         (t.ingredient_name || "").toLowerCase().includes(s)
     );
   }, [txs, q, type, branch]);

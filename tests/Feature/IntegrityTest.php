@@ -72,7 +72,7 @@ class IntegrityTest extends TestCase
     {
         $this->actingAs($this->admin());
         $this->postJson('/api/imports/Ingredient', ['rows' => [['name' => 'Flour', 'sku' => 'FLOUR', 'unit' => 'kg', 'current_stock' => 3], ['name' => 'Sugar', 'sku' => 'SUGAR', 'unit' => 'kg', 'current_stock' => 5]]])->assertOk()->assertJsonCount(2);
-        $this->assertDatabaseHas('stock_ledgers', ['item_name' => 'Flour', 'branch' => 'NAR Commi', 'current_stock' => 3]);
+        $this->assertDatabaseHas('stock_ledgers', ['item_name' => 'Flour', 'branch' => 'NAR Armal', 'current_stock' => 3]);
         $recipe = Recipe::first();
         $ing = Ingredient::where('sku', 'FLOUR')->first();
         $this->patchJson('/api/entities/Recipe/'.$recipe->id, ['product_id' => $recipe->product_id, 'variant_name' => $recipe->variant_name, 'items' => [['ingredient_id' => $ing->id, 'quantity' => 0.5]]])->assertOk();

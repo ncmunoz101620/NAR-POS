@@ -156,7 +156,7 @@ class OrderService
             if ($manual && empty($data['branch'])) {
                 $this->fail('branch', 'Select a branch for this manual order.');
             }
-            $branch = $manual ? $data['branch'] : 'NAR Commi';
+            $branch = $manual ? $data['branch'] : 'NAR Armal';
             if ($manual) {
                 Access::branch($branch);
             }

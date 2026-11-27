@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 
-const EMPTY = { name: "", email: "", mobile: "", role_name: "CSR", branch: "NAR Commi", is_active: true, password: "" };
+const EMPTY = { name: "", email: "", mobile: "", role_name: "CSR", branch: "NAR Armal", is_active: true, password: "" };
 
 export default function AdminUsers() {
   const { toast } = useToast();
@@ -162,11 +162,11 @@ export default function AdminUsers() {
                   </div>
                   <div>
                     <Label>Branch</Label>
-                    <Select value={editing.branch || "NAR Commi"} onValueChange={(v) => setEditing({ ...editing, branch: v })}>
+                    <Select value={editing.branch || "NAR Armal"} onValueChange={(v) => setEditing({ ...editing, branch: v })}>
                       <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="All">All (see all branches)</SelectItem>
-                        <SelectItem value="NAR Commi">NAR Commi</SelectItem>
+                        <SelectItem value="NAR Armal">NAR Armal</SelectItem>
                         <SelectItem value="NAR Greenwoods">NAR Greenwoods</SelectItem>
                       </SelectContent>
                     </Select>

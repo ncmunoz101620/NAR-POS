@@ -55,7 +55,7 @@ class ReportController extends Controller
     {
         abort_unless(in_array($type, ['dashboard', 'reports', 'inventorySummary']), 404);
         Access::require($type === 'inventorySummary' ? 'ingredients' : $type);
-        $filters = $request->validate(['from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d|after_or_equal:from', 'branch' => 'nullable|in:all,NAR Commi,NAR Greenwoods', 'method' => 'nullable|string|max:255']);
+        $filters = $request->validate(['from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d|after_or_equal:from', 'branch' => 'nullable|in:all,NAR Armal,NAR Greenwoods', 'method' => 'nullable|string|max:255']);
 
         return $service->$type($filters);
     }

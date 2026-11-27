@@ -24,6 +24,8 @@ The only scheduled job is the daily sales report. It sends email synchronously t
 The event-sales date migration assigns existing event entries the Manila calendar date of their recorded timestamp. New entries require an explicit event date, which determines their Dashboard, Reports, and daily email reporting day. Run `php artisan migrate --force` after deploying the code; do not refresh the production database.
 The event-sales discount migration renames existing amounts to gross sales and assigns a zero discount, preserving their net sales. New entries require both gross sales and a discount; net sales are computed from those values.
 
+The branch rename migration changes NAR Commi to NAR Armal in staff profiles, orders, stock balances, movement history, and transfers. It preserves IDs, quantities, and balances. Run `php artisan migrate --force` after deploying the matching application code so branch permissions and historical reports use the new name together. Older application exports are normalized during import. Historical audit entries retain their original text.
+
 ## Google and email
 
 Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI to the registered `/auth/google/callback` URL. The provider must return a verified email. Leave Google credentials empty to use email/password login. The development `log` mailer writes verification codes and password setup/reset links to the local Laravel log; use a real mail transport and restrict log access in production.

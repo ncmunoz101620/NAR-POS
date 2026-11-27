@@ -25,7 +25,7 @@ export default function AdminRawMaterials() {
   const [rows, setRows] = useState([]);
   const [ledger, setLedger] = useState([]);
   const [q, setQ] = useState("");
-  const [branch, setBranch] = useState("NAR Commi");
+  const [branch, setBranch] = useState("NAR Armal");
   const [stockFilter, setStockFilter] = useState("all");
   const [editing, setEditing] = useState(null);
 

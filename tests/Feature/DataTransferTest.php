@@ -49,4 +49,14 @@ class DataTransferTest extends TestCase
         $this->artisan('app:data-import', ['path' => 'import.json', '--dry-run' => true])->assertSuccessful();
         $this->assertDatabaseHas('roles', ['id' => 'old']);
     }
+
+    public function test_import_normalizes_the_former_branch_name(): void
+    {
+        $this->payload(['stock_ledgers' => [[
+            'id' => '22222222-2222-4222-8222-222222222222', 'item_id' => 'legacy-item', 'item_type' => 'Production',
+            'branch' => 'NAR Commi', 'current_stock' => 3,
+        ]]]);
+        $this->artisan('app:data-import', ['path' => 'import.json'])->assertSuccessful();
+        $this->assertDatabaseHas('stock_ledgers', ['id' => '22222222-2222-4222-8222-222222222222', 'branch' => 'NAR Armal', 'current_stock' => 3]);
+    }
 }

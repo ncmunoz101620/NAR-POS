@@ -14,7 +14,7 @@ class OrderController extends Controller
     public function index(Request $request)
     {
         Access::require('orders');
-        $data = $request->validate(['from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d', 'date_type' => 'nullable|in:created,preferred', 'branch' => 'nullable|in:all,NAR Commi,NAR Greenwoods', 'status' => 'nullable|string|max:255', 'q' => 'nullable|string|max:255', 'page' => 'nullable|integer|min:1', 'export' => 'nullable|boolean']);
+        $data = $request->validate(['from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d', 'date_type' => 'nullable|in:created,preferred', 'branch' => 'nullable|in:all,NAR Armal,NAR Greenwoods', 'status' => 'nullable|string|max:255', 'q' => 'nullable|string|max:255', 'page' => 'nullable|integer|min:1', 'export' => 'nullable|boolean']);
         $q = Access::scope(Order::whereNull('deleted_at'));
         if (! empty($data['branch']) && $data['branch'] !== 'all') {
             $q->where('branch', $data['branch']);

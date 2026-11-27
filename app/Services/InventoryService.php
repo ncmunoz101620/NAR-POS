@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 
 class InventoryService
 {
-    public const BRANCHES = ['NAR Commi', 'NAR Greenwoods'];
+    public const BRANCHES = ['NAR Armal', 'NAR Greenwoods'];
 
     public function item(string $id, string $type)
     {

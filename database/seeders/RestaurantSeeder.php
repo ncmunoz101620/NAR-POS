@@ -49,7 +49,7 @@ class RestaurantSeeder extends Seeder
         $inventory = app(InventoryService::class);
         foreach ([[$ingredient, 'Production'], [$raw, 'Raw']] as [$item,$type]) {
             if (! StockLedger::where('item_id', $item->id)->exists()) {
-                $inventory->receiveStock($item->id, $type, 'NAR Commi', 20);
+                $inventory->receiveStock($item->id, $type, 'NAR Armal', 20);
             }
         }
         $recipe = Recipe::firstOrCreate(['product_id' => $product->id, 'variant_name' => 'Regular'], ['product_name' => $product->name]);
