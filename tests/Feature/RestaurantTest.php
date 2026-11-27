@@ -53,7 +53,7 @@ class RestaurantTest extends TestCase
 
     public function test_branch_rename_migrates_existing_records_without_changing_balances(): void
     {
-        $this->staff('ADMIN', 'NAR Armal');
+        $branchStaff = $this->staff('ADMIN', 'NAR Armal');
         $this->actingAs($this->staff());
         $ingredient = Ingredient::firstOrFail();
         $this->postJson('/api/orders', $this->order())->assertOk();
@@ -79,7 +79,10 @@ class RestaurantTest extends TestCase
         $this->assertDatabaseHas('stock_transfers', ['from_branch' => 'NAR Armal', 'to_branch' => 'NAR Greenwoods']);
         $this->assertDatabaseHas('stock_transfers', ['from_branch' => 'NAR Greenwoods', 'to_branch' => 'NAR Armal']);
         $this->assertEquals($balance, StockLedger::where('item_id', $ingredient->id)->sum('current_stock'));
-        $this->getJson('/api/reports/dashboard?branch=NAR%20Armal')->assertOk();
+        $this->actingAs($branchStaff);
+        $this->getJson('/api/orders?branch=NAR%20Armal')->assertOk()->assertJsonPath('total', 1);
+        $this->getJson('/api/reports/dashboard?branch=NAR%20Armal')->assertOk()->assertJsonPath('orderCount', 1);
+        $this->getJson('/api/reports/reports?branch=NAR%20Armal')->assertOk()->assertJsonPath('validCount', 1);
         $this->getJson('/api/reports/dashboard?branch=NAR%20Commi')->assertUnprocessable();
     }
 
